@@ -6,31 +6,54 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
+  // useEffect(() => {
+  //   const getMe = async () => {
+  //     try {
+  //       const { data } = await api.get('/api/auth/me')
+  //       setUser(data.user)
+  //     } catch {
+  //       setUser(null)
+  //     } finally {
+  //       setLoading(false)
+  //     }
+  //   }
+  //   getMe()
+  // }, [])
+
+
   useEffect(() => {
     const getMe = async () => {
       try {
         const { data } = await api.get('/api/auth/me')
-        setUser(data.user)
-      } catch {
-        setUser(null)
+
+        if (data?.user) {
+          setUser(data.user)
+        }
+      } catch (err) {
+        console.log("AUTH CHECK FAILED:", err.response?.data)
+
+        // DO NOT immediately destroy session
+        // remove this:
+        // setUser(null)
       } finally {
         setLoading(false)
       }
     }
+
     getMe()
   }, [])
 
   const login = async (email, password) => {
-    const { data } = await api.post('/api/auth/login', { 
-      email, password 
+    const { data } = await api.post('/api/auth/login', {
+      email, password
     })
     setUser(data.user)
     return data.user
   }
 
   const register = async (email, password, name, charity_id, charity_percentage = 10) => {
-    const { data } = await api.post('/api/auth/register', { 
-      email, password, name, charity_id, charity_percentage 
+    const { data } = await api.post('/api/auth/register', {
+      email, password, name, charity_id, charity_percentage
     })
     setUser(data.user)
     return data.user
@@ -59,8 +82,8 @@ export function AuthProvider({ children }) {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ 
-      user, setUser, loading, login, register, logout, refreshUser, updateProfile 
+    <AuthContext.Provider value={{
+      user, setUser, loading, login, register, logout, refreshUser, updateProfile
     }}>
       {children}
     </AuthContext.Provider>
