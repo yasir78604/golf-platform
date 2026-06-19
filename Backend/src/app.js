@@ -8,10 +8,13 @@ const drawRoutes = require('./routes/draw.routes')
 const charityRoutes = require('./routes/charity.routes')
 const subscriptionRoutes = require('./routes/subscription.routes')
 const adminRoutes = require('./routes/admin.routes')
-
-
+const { stripeWebhook } = require('./controllers/subscription.controller')
 
 const app = express()
+
+// Stripe signature verification requires the untouched request body. This route
+// must be registered before express.json() parses all other JSON requests.
+app.post('/api/subscriptions/webhook', express.raw({ type: 'application/json' }), stripeWebhook)
 
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ limit: '10mb', extended: true }))

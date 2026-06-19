@@ -39,14 +39,14 @@ function Pricing() {
 
     const run = async () => {
       try {
-        await refreshUser()
+        const refreshedUser = await refreshUser()
 
-        if (user?.subscription_status === 'active') {
+        if (refreshedUser?.subscription_status === 'active') {
           navigate('/dashboard')
           return
         }
 
-        if (user?.subscription_status === 'pending') {
+        if (refreshedUser?.subscription_status === 'pending') {
           navigate('/payment-success?success=true', { replace: true })
           return
         }
@@ -58,7 +58,7 @@ function Pricing() {
     }
 
     run()
-  }, [searchParams, refreshUser, user, navigate])
+  }, [searchParams, refreshUser, navigate])
 
   const handleSubscribe = async (plan) => {
     if (!user) {
@@ -76,7 +76,7 @@ function Pricing() {
 
     try {
       const { data } = await createCheckout(plan)
-      window.location.href = data.url
+      window.location.assign(data.url)
     } catch {
       setError('Could not start checkout. Please try again.')
       setLoading(null)

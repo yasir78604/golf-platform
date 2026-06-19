@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from "react"
+import { createContext, useCallback, useContext, useState, useEffect } from "react"
 import api from "../services/api"
 
 const AuthContext = createContext()
@@ -12,7 +12,7 @@ export function AuthProvider({ children }) {
       try {
         const { data } = await api.get('/api/auth/me')
         setUser(data.user)
-      } catch(err) {
+      } catch {
         setUser(null)
       } finally {
         setLoading(false)
@@ -42,15 +42,16 @@ export function AuthProvider({ children }) {
     setUser(null)
   }
 
-  const refreshUser = async () => {
+  const refreshUser = useCallback(async () => {
     try {
       const { data } = await api.get('/api/auth/me')
       setUser(data.user)
       return data.user
     } catch {
       setUser(null)
+      return null
     }
-  }
+  }, [])
 
   return (
     <AuthContext.Provider value={{ 

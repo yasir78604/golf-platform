@@ -20,13 +20,18 @@ const createCheckout = async (req, res) => {
       })
     }
 
+    const frontendUrl = process.env.FRONTEND_URL?.trim().replace(/\/+$/, '')
+    if (!frontendUrl) {
+      console.error('FRONTEND_URL is not configured')
+      return res.status(500).json({ message: 'Frontend URL is not configured.' })
+    }
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       mode: 'subscription',
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${process.env.FRONTEND_URL}/payment-success?success=true`,
-
-      cancel_url: `${process.env.FRONTEND_URL}/pricing`,
+      success_url: `${frontendUrl}/payment-success?success=true`,
+      cancel_url: `${frontendUrl}/pricing`,
       metadata: {
         user_id: req.user.id,
         plan
