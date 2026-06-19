@@ -2,6 +2,7 @@ const express = require('express')
 const {
   getUsers, updateUser, approveMembership,
   createDraw, executeDraw, publishDraw,
+  getDrawsAdmin, previewDraw,
   getWinners, verifyWinner,
   manageCharity, getAnalytics
 } = require('../controllers/admin.controller')
@@ -15,7 +16,9 @@ router.patch('/users/:id', adminMiddleware, updateUser)
 router.patch('/memberships/:id/approve', adminMiddleware, approveMembership)
 
 // Draws
+router.get('/draws', adminMiddleware, getDrawsAdmin)
 router.post('/draws', adminMiddleware, createDraw)
+router.post('/draws/simulate', adminMiddleware, previewDraw)
 router.post('/draws/:id/execute', adminMiddleware, executeDraw)
 router.post('/draws/:id/publish', adminMiddleware, publishDraw)
 

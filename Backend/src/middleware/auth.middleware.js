@@ -45,9 +45,26 @@ const subscriptionMiddleware = async (req, res, next) => {
       .eq('id', req.user.id)
       .single()
 
-    if(!user || user.subscription_status !== 'active') {
+    if (!user) {
+      return res.status(403).json({ message: 'Active subscription required' })
+    }
+
+    const expired = user.subscription_end_date && new Date(user.subscription_end_date) <= new Date()
+    if (user.subscription_status === 'active' && expired) {
+      await Promise.all([
+        supabase.from('users').update({ subscription_status: 'lapsed' }).eq('id', req.user.id),
+        supabase.from('subscriptions').update({ status: 'lapsed' }).eq('user_id', req.user.id).eq('status', 'active')
+      ])
+      return res.status(403).json({
+        message: 'Your subscription has expired',
+        code: 'SUBSCRIPTION_LAPSED'
+      })
+    }
+
+    if(user.subscription_status !== 'active') {
       return res.status(403).json({ 
-        message: "Active subscription required" 
+        message: "Active subscription required",
+        code: 'SUBSCRIPTION_REQUIRED'
       })
     }
 

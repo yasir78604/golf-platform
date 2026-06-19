@@ -1,10 +1,11 @@
 const express = require('express')
-const { createCheckout, getSubscription } = require('../controllers/subscription.controller')
+const { createCheckout, getSubscription, cancelSubscription } = require('../controllers/subscription.controller')
 const { authMiddleware } = require('../middleware/auth.middleware')
 
 const router = express.Router()
 
 router.post('/checkout', authMiddleware, createCheckout)
 router.get('/', authMiddleware, getSubscription)
+router.post('/cancel', authMiddleware, cancelSubscription)
 
 module.exports = router

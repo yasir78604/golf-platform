@@ -10,7 +10,9 @@ import {
   getUsers,
   updateUser,
   approveMembership,
+  getAdminDraws,
   createDraw,
+  simulateDraw,
   executeDraw,
   publishDraw,
   getWinners,
@@ -31,6 +33,8 @@ function AdminDashboard() {
 
   const [analytics, setAnalytics] = useState(null)
   const [users, setUsers] = useState([])
+  const [draws, setDraws] = useState([])
+  const [simulation, setSimulation] = useState(null)
   const [winners, setWinners] = useState([])
   const [charities, setCharities] = useState([])
 
@@ -45,6 +49,10 @@ function AdminDashboard() {
   const [charityForm, setCharityForm] = useState({
     name: '',
     description: '',
+    category: '',
+    image_url: '',
+    website_url: '',
+    events_url: '',
     featured: false,
     editingId: null,
   })
@@ -63,6 +71,9 @@ function AdminDashboard() {
       } else if (tab === 'Users') {
         const { data } = await getUsers()
         setUsers(data.users || [])
+      } else if (tab === 'Draws') {
+        const { data } = await getAdminDraws()
+        setDraws(data.draws || [])
       } else if (tab === 'Winners') {
         const { data } = await getWinners()
         setWinners(data.winners || [])
@@ -110,6 +121,7 @@ function AdminDashboard() {
       )
       setDrawForm(prev => ({ ...prev, drawId: data.draw.id }))
       setSuccess(`Draw created. ID: ${data.draw.id}`)
+      loadTabData('Draws')
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to create draw.')
     }
@@ -121,6 +133,7 @@ function AdminDashboard() {
     try {
       const { data } = await executeDraw(drawForm.drawId, drawForm.executeType)
       setSuccess(`Draw executed. ${data.winners?.length || 0} winners found.`)
+      loadTabData('Draws')
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to execute draw.')
     }
@@ -132,8 +145,21 @@ function AdminDashboard() {
     try {
       await publishDraw(drawForm.drawId)
       setSuccess('Draw published.')
+      loadTabData('Draws')
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to publish draw.')
+    }
+  }
+
+  const handleSimulateDraw = async () => {
+    setError('')
+    setSuccess('')
+    try {
+      const { data } = await simulateDraw(drawForm.executeType)
+      setSimulation(data.simulation)
+      setSuccess('Simulation ready. No live draw was changed.')
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to simulate draw.')
     }
   }
 
@@ -155,6 +181,10 @@ function AdminDashboard() {
       const payload = {
         name: charityForm.name,
         description: charityForm.description,
+        category: charityForm.category,
+        image_url: charityForm.image_url,
+        website_url: charityForm.website_url,
+        events_url: charityForm.events_url,
         featured: charityForm.featured,
       }
 
@@ -166,7 +196,16 @@ function AdminDashboard() {
         setSuccess('Charity created.')
       }
 
-      setCharityForm({ name: '', description: '', featured: false, editingId: null })
+      setCharityForm({
+        name: '',
+        description: '',
+        category: '',
+        image_url: '',
+        website_url: '',
+        events_url: '',
+        featured: false,
+        editingId: null
+      })
       loadTabData('Charities')
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to save charity.')
@@ -177,6 +216,10 @@ function AdminDashboard() {
     setCharityForm({
       name: charity.name || '',
       description: charity.description || '',
+      category: charity.category || '',
+      image_url: charity.image_url || '',
+      website_url: charity.website_url || '',
+      events_url: charity.events_url || '',
       featured: charity.featured || false,
       editingId: charity.id,
     })
@@ -327,7 +370,8 @@ function AdminDashboard() {
                         className="w-full px-4 py-3 bg-elevated text-white rounded-lg border border-border focus:outline-none focus:border-accent"
                       >
                         <option value="random">Random</option>
-                        <option value="frequency">Frequency Weighted</option>
+                        <option value="frequency-most">Most Frequent Scores</option>
+                        <option value="frequency-least">Least Frequent Scores</option>
                       </select>
                     </div>
                     <Button type="submit">Create Draw</Button>
@@ -351,10 +395,14 @@ function AdminDashboard() {
                         className="w-full px-4 py-3 bg-elevated text-white rounded-lg border border-border focus:outline-none focus:border-accent"
                       >
                         <option value="random">Random</option>
-                        <option value="frequency">Frequency Weighted</option>
+                        <option value="frequency-most">Most Frequent Scores</option>
+                        <option value="frequency-least">Least Frequent Scores</option>
                       </select>
                     </div>
                     <div className="flex gap-3">
+                      <Button onClick={handleSimulateDraw} variant="secondary" className="flex-1">
+                        Simulate
+                      </Button>
                       <Button onClick={handleExecuteDraw} variant="secondary" className="flex-1">
                         Execute
                       </Button>
@@ -362,6 +410,47 @@ function AdminDashboard() {
                         Publish
                       </Button>
                     </div>
+                    {simulation && (
+                      <div className="bg-elevated rounded-lg border border-border p-4">
+                        <p className="text-white text-sm font-semibold mb-2">
+                          Simulated numbers: {simulation.drawnNumbers?.join(', ')}
+                        </p>
+                        <p className="text-[#888] text-xs">
+                          5-match: {simulation.winnerSummary?.fiveMatch || 0} · 4-match: {simulation.winnerSummary?.fourMatch || 0} · 3-match: {simulation.winnerSummary?.threeMatch || 0}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </Card>
+
+                <Card className="lg:col-span-2">
+                  <h2 className="text-white font-semibold mb-4">Draw History</h2>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-[#888] border-b border-border">
+                          <th className="text-left py-3 pr-4">Month</th>
+                          <th className="text-left py-3 pr-4">Type</th>
+                          <th className="text-left py-3 pr-4">Status</th>
+                          <th className="text-left py-3 pr-4">Numbers</th>
+                          <th className="text-left py-3">Pool</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {draws.map(draw => (
+                          <tr key={draw.id} className="border-b border-border/50">
+                            <td className="py-3 pr-4 text-white">{draw.month}/{draw.year}</td>
+                            <td className="py-3 pr-4 text-[#888]">{draw.draw_type}</td>
+                            <td className="py-3 pr-4 text-[#888] capitalize">{draw.status}</td>
+                            <td className="py-3 pr-4 text-[#888]">{draw.drawn_numbers?.join(', ') || 'Not run'}</td>
+                            <td className="py-3 text-accent">${draw.total_pool?.toFixed?.(2) || '0.00'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {draws.length === 0 && (
+                      <p className="text-[#888] text-sm text-center py-6">No draws created yet.</p>
+                    )}
                   </div>
                 </Card>
               </div>
@@ -392,12 +481,38 @@ function AdminDashboard() {
                           <td className="py-3 pr-4 text-accent">${w.prize_amount?.toFixed(2)}</td>
                           <td className="py-3 pr-4 text-[#888] capitalize">{w.status}</td>
                           <td className="py-3">
+                            {w.proof_url && (
+                              <a
+                                href={w.proof_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-[#888] text-sm hover:text-white mr-3"
+                              >
+                                Proof
+                              </a>
+                            )}
                             {w.status !== 'verified' && (
                               <button
                                 onClick={() => handleVerifyWinner(w.id, 'verified')}
-                                className="text-accent text-sm hover:text-[#00b386]"
+                                className="text-accent text-sm hover:text-[#00b386] mr-3"
                               >
                                 Verify
+                              </button>
+                            )}
+                            {w.status !== 'rejected' && (
+                              <button
+                                onClick={() => handleVerifyWinner(w.id, 'rejected')}
+                                className="text-red-300 text-sm hover:text-red-200 mr-3"
+                              >
+                                Reject
+                              </button>
+                            )}
+                            {w.status === 'verified' && (
+                              <button
+                                onClick={() => handleVerifyWinner(w.id, 'paid')}
+                                className="text-accent text-sm hover:text-[#00b386]"
+                              >
+                                Mark paid
                               </button>
                             )}
                           </td>
@@ -431,6 +546,30 @@ function AdminDashboard() {
                       onChange={e => setCharityForm(p => ({ ...p, description: e.target.value }))}
                       placeholder="Short description"
                     />
+                    <FormField
+                      label="Category"
+                      value={charityForm.category}
+                      onChange={e => setCharityForm(p => ({ ...p, category: e.target.value }))}
+                      placeholder="Youth golf, health, local community..."
+                    />
+                    <FormField
+                      label="Image URL"
+                      value={charityForm.image_url}
+                      onChange={e => setCharityForm(p => ({ ...p, image_url: e.target.value }))}
+                      placeholder="https://..."
+                    />
+                    <FormField
+                      label="Website URL"
+                      value={charityForm.website_url}
+                      onChange={e => setCharityForm(p => ({ ...p, website_url: e.target.value }))}
+                      placeholder="https://..."
+                    />
+                    <FormField
+                      label="Events URL"
+                      value={charityForm.events_url}
+                      onChange={e => setCharityForm(p => ({ ...p, events_url: e.target.value }))}
+                      placeholder="https://..."
+                    />
                     <label className="flex items-center gap-2 text-[#888] text-sm">
                       <input
                         type="checkbox"
@@ -448,7 +587,16 @@ function AdminDashboard() {
                         <Button
                           type="button"
                           variant="secondary"
-                          onClick={() => setCharityForm({ name: '', description: '', featured: false, editingId: null })}
+                          onClick={() => setCharityForm({
+                            name: '',
+                            description: '',
+                            category: '',
+                            image_url: '',
+                            website_url: '',
+                            events_url: '',
+                            featured: false,
+                            editingId: null
+                          })}
                           className="flex-1"
                         >
                           Cancel
@@ -468,6 +616,9 @@ function AdminDashboard() {
                       >
                         <div>
                           <span className="text-white font-medium">{c.name}</span>
+                          {c.category && (
+                            <span className="text-[#888] text-xs ml-2">{c.category}</span>
+                          )}
                           {c.featured && (
                             <span className="text-accent text-xs ml-2">Featured</span>
                           )}

@@ -5,8 +5,11 @@ export const getUsers = () => api.get('/api/admin/users')
 export const updateUser = (id, updates) => api.patch(`/api/admin/users/${id}`, updates)
 export const approveMembership = (id) => api.patch(`/api/admin/memberships/${id}/approve`)
 
+export const getAdminDraws = () => api.get('/api/admin/draws')
 export const createDraw = (month, year, draw_type) =>
   api.post('/api/admin/draws', { month, year, draw_type })
+export const simulateDraw = (draw_type) =>
+  api.post('/api/admin/draws/simulate', { draw_type })
 export const executeDraw = (id, draw_type) =>
   api.post(`/api/admin/draws/${id}/execute`, { draw_type })
 export const publishDraw = (id) => api.post(`/api/admin/draws/${id}/publish`)

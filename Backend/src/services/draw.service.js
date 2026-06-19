@@ -1,141 +1,169 @@
 const supabase = require('../db/supabase')
 
-const generateRandomNumbers = (count, min, max) => {
-  const numbers = new Set()
-  while(numbers.size < count) {
+const SCORE_MIN = 1
+const SCORE_MAX = 45
+const DRAW_SIZE = 5
+
+const normaliseDrawType = (type = 'random') => {
+  if (['frequency', 'frequency-most', 'weighted'].includes(type)) return 'frequency-most'
+  if (['frequency-least', 'least'].includes(type)) return 'frequency-least'
+  return 'random'
+}
+
+const generateRandomNumbers = (count = DRAW_SIZE, min = SCORE_MIN, max = SCORE_MAX, exclude = []) => {
+  const numbers = new Set(exclude)
+  while (numbers.size < count + exclude.length && numbers.size < max - min + 1) {
     numbers.add(Math.floor(Math.random() * (max - min + 1)) + min)
   }
-  return Array.from(numbers)
+  return Array.from(numbers).filter(number => !exclude.includes(number)).slice(0, count)
+}
+
+const getScoreFrequency = async () => {
+  const { data, error } = await supabase
+    .from('scores')
+    .select('score')
+
+  if (error) throw error
+
+  return (data || []).reduce((frequency, row) => {
+    const score = Number(row.score)
+    if (score >= SCORE_MIN && score <= SCORE_MAX) {
+      frequency[score] = (frequency[score] || 0) + 1
+    }
+    return frequency
+  }, {})
+}
+
+const generateDrawNumbers = async (type = 'random') => {
+  const drawType = normaliseDrawType(type)
+
+  if (drawType === 'random') {
+    return generateRandomNumbers(DRAW_SIZE)
+  }
+
+  const frequency = await getScoreFrequency()
+  const ranked = Array.from({ length: SCORE_MAX }, (_, index) => index + 1)
+    .map(score => ({ score, count: frequency[score] || 0 }))
+    .sort((a, b) => {
+      if (drawType === 'frequency-least') return a.count - b.count || a.score - b.score
+      return b.count - a.count || a.score - b.score
+    })
+    .map(item => item.score)
+
+  const selected = ranked.slice(0, DRAW_SIZE)
+  if (selected.length < DRAW_SIZE) {
+    return [...selected, ...generateRandomNumbers(DRAW_SIZE - selected.length, SCORE_MIN, SCORE_MAX, selected)]
+  }
+
+  return selected
 }
 
 const runDraw = async (drawId, type = 'random') => {
-  try {
-    let drawnNumbers = []
+  const drawnNumbers = await generateDrawNumbers(type)
 
-    if(type === 'random') {
-      drawnNumbers = generateRandomNumbers(5, 1, 45)
-    } else {
-      // Algorithmic — weighted by most frequent scores
-      const { data: allScores } = await supabase
-        .from('scores')
-        .select('score')
+  const { error } = await supabase
+    .from('draws')
+    .update({
+      drawn_numbers: drawnNumbers,
+      draw_type: normaliseDrawType(type),
+      executed_at: new Date().toISOString()
+    })
+    .eq('id', drawId)
 
-      const frequency = {}
-      allScores.forEach(({ score }) => {
-        frequency[score] = (frequency[score] || 0) + 1
-      })
-
-      drawnNumbers = Object.entries(frequency)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5)
-        .map(([num]) => Number(num))
-
-      if(drawnNumbers.length < 5) {
-        const extras = generateRandomNumbers(
-          5 - drawnNumbers.length, 1, 45
-        )
-        drawnNumbers = [...new Set([...drawnNumbers, ...extras])]
-          .slice(0, 5)
-      }
-    }
-
-    // Update draw with numbers
-    await supabase
-      .from('draws')
-      .update({ drawn_numbers: drawnNumbers })
-      .eq('id', drawId)
-
-    return drawnNumbers
-
-  } catch(err) {
-    throw err
-  }
+  if (error) throw error
+  return drawnNumbers
 }
 
 const findWinners = async (drawId, drawnNumbers) => {
-  try {
-    // Get all active subscribers with their scores
-    const { data: users } = await supabase
-      .from('users')
-      .select('id')
-      .eq('subscription_status', 'active')
+  const { data: users, error } = await supabase
+    .from('users')
+    .select('id')
+    .eq('subscription_status', 'active')
 
-    const winners = []
+  if (error) throw error
 
-    for(const user of users) {
-      const { data: scores } = await supabase
-        .from('scores')
-        .select('score')
-        .eq('user_id', user.id)
+  const winners = []
 
-      const userScores = scores.map(s => s.score)
-      const matches = userScores.filter(s => 
-        drawnNumbers.includes(s)
-      ).length
+  for (const user of users || []) {
+    const { data: scores, error: scoreError } = await supabase
+      .from('scores')
+      .select('score')
+      .eq('user_id', user.id)
+      .order('date', { ascending: false })
+      .limit(DRAW_SIZE)
 
-      if(matches >= 3) {
-        winners.push({
-          user_id: user.id,
-          draw_id: drawId,
-          match_type: matches >= 5 ? '5-match'
-                    : matches >= 4 ? '4-match'
-                    : '3-match',
-          matches
-        })
-      }
+    if (scoreError) throw scoreError
+
+    const userScores = (scores || []).map(s => Number(s.score))
+    const matches = userScores.filter(s => drawnNumbers.includes(s)).length
+
+    if (matches >= 3) {
+      winners.push({
+        user_id: user.id,
+        draw_id: drawId,
+        match_type: matches >= 5 ? '5-match' : matches >= 4 ? '4-match' : '3-match',
+        matches,
+        status: 'pending',
+        payout_status: 'pending'
+      })
     }
+  }
 
-    return winners
-  } catch(err) {
-    throw err
+  return winners
+}
+
+const calculatePrizes = async (drawId, winners = []) => {
+  const { data: pool, error } = await supabase
+    .from('prize_pools')
+    .select()
+    .eq('draw_id', drawId)
+    .single()
+
+  if (error) throw error
+  if (!pool) return winners
+
+  const fiveMatchWinners = winners.filter(w => w.match_type === '5-match')
+  const fourMatchWinners = winners.filter(w => w.match_type === '4-match')
+  const threeMatchWinners = winners.filter(w => w.match_type === '3-match')
+
+  const fivePrize = fiveMatchWinners.length > 0
+    ? Number(pool.five_match_pool || 0) / fiveMatchWinners.length
+    : 0
+  const fourPrize = fourMatchWinners.length > 0
+    ? Number(pool.four_match_pool || 0) / fourMatchWinners.length
+    : 0
+  const threePrize = threeMatchWinners.length > 0
+    ? Number(pool.three_match_pool || 0) / threeMatchWinners.length
+    : 0
+
+  return winners.map(w => ({
+    ...w,
+    prize_amount: w.match_type === '5-match' ? fivePrize
+      : w.match_type === '4-match' ? fourPrize
+      : threePrize
+  }))
+}
+
+const simulateDraw = async (type = 'random') => {
+  const drawnNumbers = await generateDrawNumbers(type)
+  const winners = await findWinners(null, drawnNumbers)
+  return {
+    draw_type: normaliseDrawType(type),
+    drawnNumbers,
+    winnerSummary: {
+      fiveMatch: winners.filter(w => w.match_type === '5-match').length,
+      fourMatch: winners.filter(w => w.match_type === '4-match').length,
+      threeMatch: winners.filter(w => w.match_type === '3-match').length
+    }
   }
 }
 
-const calculatePrizes = async (drawId, winners) => {
-  try {
-    // Get prize pool
-    const { data: pool } = await supabase
-      .from('prize_pools')
-      .select()
-      .eq('draw_id', drawId)
-      .single()
-
-    if(!pool) return winners
-
-    const fiveMatchWinners = winners.filter(w => 
-      w.match_type === '5-match'
-    )
-    const fourMatchWinners = winners.filter(w => 
-      w.match_type === '4-match'
-    )
-    const threeMatchWinners = winners.filter(w => 
-      w.match_type === '3-match'
-    )
-
-    // Calculate prize per winner
-    const fivePrize = fiveMatchWinners.length > 0
-      ? (pool.five_match_pool + pool.jackpot_rollover) / fiveMatchWinners.length
-      : 0
-
-    const fourPrize = fourMatchWinners.length > 0
-      ? pool.four_match_pool / fourMatchWinners.length
-      : 0
-
-    const threePrize = threeMatchWinners.length > 0
-      ? pool.three_match_pool / threeMatchWinners.length
-      : 0
-
-    // Assign prizes
-    return winners.map(w => ({
-      ...w,
-      prize_amount: w.match_type === '5-match' ? fivePrize
-                  : w.match_type === '4-match' ? fourPrize
-                  : threePrize
-    }))
-
-  } catch(err) {
-    throw err
-  }
+module.exports = {
+  generateDrawNumbers,
+  generateRandomNumbers,
+  runDraw,
+  findWinners,
+  calculatePrizes,
+  simulateDraw,
+  normaliseDrawType
 }
-
-module.exports = { runDraw, findWinners, calculatePrizes }

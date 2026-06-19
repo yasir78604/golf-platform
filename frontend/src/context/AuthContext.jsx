@@ -29,10 +29,16 @@ export function AuthProvider({ children }) {
     return data.user
   }
 
-  const register = async (email, password, name) => {
+  const register = async (email, password, name, charity_id, charity_percentage = 10) => {
     const { data } = await api.post('/api/auth/register', { 
-      email, password, name 
+      email, password, name, charity_id, charity_percentage 
     })
+    setUser(data.user)
+    return data.user
+  }
+
+  const updateProfile = async (updates) => {
+    const { data } = await api.patch('/api/auth/me', updates)
     setUser(data.user)
     return data.user
   }
@@ -55,7 +61,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{ 
-      user, setUser, loading, login, register, logout, refreshUser 
+      user, setUser, loading, login, register, logout, refreshUser, updateProfile 
     }}>
       {children}
     </AuthContext.Provider>

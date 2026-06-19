@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { getCharities } from '../services/charities'
 
 function Register() {
   const { register } = useAuth()
@@ -8,18 +9,31 @@ function Register() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [charities, setCharities] = useState([])
+  const [charityId, setCharityId] = useState('')
+  const [charityPercentage, setCharityPercentage] = useState(10)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    getCharities({ featured: true })
+      .then(({ data }) => {
+        const options = data.charities || []
+        setCharities(options)
+        if (options[0]?.id) setCharityId(options[0].id)
+      })
+      .catch(() => setCharities([]))
+  }, [])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     setLoading(true)
     try {
-      await register(email, password, name)
+      await register(email, password, name, charityId || null, Number(charityPercentage))
       navigate('/pricing')
     } catch(err) {
-      setError('Registration failed. Please try again.')
+      setError(err.response?.data?.message || 'Registration failed. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -71,6 +85,43 @@ function Register() {
                 focus:outline-none focus:border-[#00c896] 
                 transition-colors"
               />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[#888] text-sm font-medium">
+                Charity you want to support
+              </label>
+              <select
+                value={charityId}
+                onChange={e => setCharityId(e.target.value)}
+                className="w-full px-4 py-3 bg-[#1a1a1a] text-white 
+                rounded-lg border border-[#222] focus:outline-none 
+                focus:border-[#00c896] transition-colors"
+              >
+                <option value="">Choose later</option>
+                {charities.map(charity => (
+                  <option value={charity.id} key={charity.id}>
+                    {charity.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[#888] text-sm font-medium">
+                Charity share: {charityPercentage}%
+              </label>
+              <input
+                type="range"
+                min={10}
+                max={100}
+                value={charityPercentage}
+                onChange={e => setCharityPercentage(e.target.value)}
+                className="accent-[#00c896]"
+              />
+              <p className="text-[#666] text-xs">
+                Minimum 10%. You can adjust this any time.
+              </p>
             </div>
 
             <div className="flex flex-col gap-1.5">

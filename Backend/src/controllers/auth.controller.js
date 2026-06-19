@@ -4,7 +4,7 @@ const supabase = require('../db/supabase')
 
 const register = async (req, res) => {
   try {
-    const { email, password, name } = req.body
+    const { email, password, name, charity_id, charity_percentage = 10 } = req.body
 
     if (!email || !password || !name) {
       return res.status(400).json({ message: 'Name, email, and password are required' })
@@ -14,7 +14,7 @@ const register = async (req, res) => {
     const { data: existing, error: existingError } = await supabase
       .from('users')
       .select()
-      .eq('email', email)
+      .eq('email', email.trim().toLowerCase())
       .single()
 
     if (existingError && existingError.code !== 'PGRST116') {
@@ -38,7 +38,13 @@ const register = async (req, res) => {
     // Create user
     const { data: user, error } = await supabase
       .from('users')
-      .insert({ email, password: hash, name })
+      .insert({
+        email: email.trim().toLowerCase(),
+        password: hash,
+        name: name.trim(),
+        charity_id: charity_id || null,
+        charity_percentage: Math.max(10, Math.min(100, Number(charity_percentage) || 10))
+      })
       .select()
       .single()
 
@@ -152,7 +158,7 @@ const getMe = async (req, res) => {
   try {
     const { data: user } = await supabase
       .from('users')
-      .select('id, email, name, role, subscription_status, subscription_plan, subscription_end_date, charity_id, charity_percentage')
+      .select('id, email, name, country, role, subscription_status, subscription_plan, subscription_end_date, charity_id, charity_percentage')
       .eq('id', req.user.id)
       .single()
 
@@ -172,4 +178,27 @@ const getMe = async (req, res) => {
   }
 }
 
-module.exports = { register, login, logout, getMe }
+const updateProfile = async (req, res) => {
+  try {
+    const name = req.body.name?.trim()
+    const country = req.body.country?.trim() || null
+
+    if (!name || name.length > 100) {
+      return res.status(400).json({ message: 'A valid name is required' })
+    }
+
+    const { data: user, error } = await supabase
+      .from('users')
+      .update({ name, country })
+      .eq('id', req.user.id)
+      .select('id, email, name, country, role, subscription_status, subscription_plan, subscription_end_date, charity_id, charity_percentage')
+      .single()
+
+    if (error) throw error
+    res.status(200).json({ message: 'Profile updated', user })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
+
+module.exports = { register, login, logout, getMe, updateProfile }

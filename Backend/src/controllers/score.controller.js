@@ -1,16 +1,25 @@
 const supabase = require('../db/supabase')
 
+const validateScoreInput = (score, date) => {
+  if (!Number.isInteger(Number(score)) || Number(score) < 1 || Number(score) > 45) {
+    return 'Score must be a whole number between 1 and 45'
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '') || Number.isNaN(Date.parse(`${date}T00:00:00Z`))) {
+    return 'A valid score date is required'
+  }
+  if (new Date(`${date}T23:59:59Z`) > new Date()) {
+    return 'Score date cannot be in the future'
+  }
+  return null
+}
+
 const addScore = async (req, res) => {
   try {
     const { score, date } = req.body
     const userId = req.user.id
 
-    // Validate score range
-    if (score < 1 || score > 45) {
-      return res.status(400).json({
-        message: "Score must be between 1 and 45"
-      })
-    }
+    const validationError = validateScoreInput(score, date)
+    if (validationError) return res.status(400).json({ message: validationError })
 
     // Check duplicate date
     const { data: existing } = await supabase
@@ -43,7 +52,7 @@ const addScore = async (req, res) => {
     // Insert new score
     const { data: newScore, error } = await supabase
       .from('scores')
-      .insert({ user_id: userId, score, date })
+      .insert({ user_id: userId, score: Number(score), date })
       .select()
       .single()
 
@@ -78,11 +87,8 @@ const updateScore = async (req, res) => {
     const { id } = req.params
     const { score, date } = req.body
 
-    if (score < 1 || score > 45) {
-      return res.status(400).json({
-        message: "Score must be between 1 and 45"
-      })
-    }
+    const validationError = validateScoreInput(score, date)
+    if (validationError) return res.status(400).json({ message: validationError })
 
     const { data: duplicate } = await supabase
       .from('scores')
@@ -100,7 +106,7 @@ const updateScore = async (req, res) => {
 
     const { data, error } = await supabase
       .from('scores')
-      .update({ score, date })
+      .update({ score: Number(score), date })
       .eq('id', id)
       .eq('user_id', req.user.id)
       .select()

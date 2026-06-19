@@ -8,10 +8,11 @@ import Alert from '../components/ui/Alert'
 import Spinner from '../components/ui/Spinner'
 import { useAuth } from '../context/AuthContext'
 import { getScores, addScore, updateScore, deleteScore } from '../services/scores'
-import { getMyResults, getDraws } from '../services/draws'
+import { getMyResults, getDraws, submitWinnerProof } from '../services/draws'
+import { cancelSubscription } from '../services/subscriptions'
 
 function Dashboard() {
-  const { user, refreshUser } = useAuth()
+  const { user, refreshUser, updateProfile } = useAuth()
   const [searchParams] = useSearchParams()
   const [scores, setScores] = useState([])
   const [results, setResults] = useState([])
@@ -24,6 +25,8 @@ function Dashboard() {
   const [score, setScore] = useState('')
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [editingId, setEditingId] = useState(null)
+  const [profileForm, setProfileForm] = useState({ name: user?.name || '', country: user?.country || '' })
+  const [proofFiles, setProofFiles] = useState({})
 
   useEffect(() => {
     if (searchParams.get('success') === 'true') {
@@ -32,6 +35,10 @@ function Dashboard() {
     }
     loadData()
   }, [])
+
+  useEffect(() => {
+    setProfileForm({ name: user?.name || '', country: user?.country || '' })
+  }, [user])
 
   const loadData = async () => {
     setLoading(true)
@@ -98,6 +105,48 @@ function Dashboard() {
     setEditingId(null)
     setScore('')
     setDate(new Date().toISOString().split('T')[0])
+  }
+
+  const handleProfileSubmit = async (e) => {
+    e.preventDefault()
+    setError('')
+    setSuccess('')
+    try {
+      await updateProfile?.(profileForm)
+      setSuccess('Profile updated.')
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to update profile.')
+    }
+  }
+
+  const handleCancelSubscription = async () => {
+    if (!confirm('Cancel at the end of your current billing period?')) return
+    setError('')
+    setSuccess('')
+    try {
+      const { data } = await cancelSubscription()
+      await refreshUser?.()
+      setSuccess(data.message || 'Subscription cancellation scheduled.')
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to cancel subscription.')
+    }
+  }
+
+  const handleProofSubmit = async (resultId) => {
+    const file = proofFiles[resultId]
+    if (!file) {
+      setError('Choose a proof file before submitting.')
+      return
+    }
+    setError('')
+    setSuccess('')
+    try {
+      await submitWinnerProof(resultId, file)
+      setSuccess('Proof uploaded. Admin will verify your win.')
+      await loadData()
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to upload proof.')
+    }
   }
 
   if (loading) {
@@ -204,6 +253,15 @@ function Dashboard() {
               <p className="text-[#888] text-sm mb-2">Subscription status</p>
               <p className="text-white font-bold text-xl capitalize">{user?.subscription_status || 'inactive'}</p>
               <p className="text-[#888] text-sm mt-2">Renewal: {user?.subscription_end_date || 'N/A'}</p>
+              {user?.subscription_status === 'active' && (
+                <button
+                  type="button"
+                  onClick={handleCancelSubscription}
+                  className="text-red-300 text-xs mt-3 hover:text-red-200"
+                >
+                  Cancel at period end
+                </button>
+              )}
             </Card>
             <Card>
               <p className="text-[#888] text-sm mb-2">Charity</p>
@@ -216,6 +274,24 @@ function Dashboard() {
               <p className="text-[#888] text-sm mt-2">Latest draw: {draws[0]?.month || 'N/A'}/{draws[0]?.year || ''}</p>
             </Card>
           </div>
+
+          <Card>
+            <h2 className="text-white font-semibold mb-4">Profile settings</h2>
+            <form onSubmit={handleProfileSubmit} className="grid sm:grid-cols-3 gap-4 items-end">
+              <FormField
+                label="Name"
+                value={profileForm.name}
+                onChange={e => setProfileForm(p => ({ ...p, name: e.target.value }))}
+              />
+              <FormField
+                label="Country"
+                value={profileForm.country}
+                onChange={e => setProfileForm(p => ({ ...p, country: e.target.value }))}
+                placeholder="Country"
+              />
+              <Button type="submit">Save Profile</Button>
+            </form>
+          </Card>
 
           <Card>
             <h2 className="text-white font-semibold mb-4">Draw Results</h2>
@@ -240,6 +316,23 @@ function Dashboard() {
                       </span>
                       <span className="text-[#888] text-xs block capitalize">{r.status}</span>
                     </div>
+                    {['pending', 'rejected'].includes(r.status) && (
+                      <div className="flex flex-col gap-2 min-w-48">
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp,application/pdf"
+                          onChange={e => setProofFiles(p => ({ ...p, [r.id]: e.target.files?.[0] }))}
+                          className="text-[#888] text-xs"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleProofSubmit(r.id)}
+                          className="text-accent text-xs text-left hover:text-[#00b386]"
+                        >
+                          Upload proof
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

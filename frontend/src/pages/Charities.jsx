@@ -6,7 +6,7 @@ import Button from '../components/ui/Button'
 import Alert from '../components/ui/Alert'
 import Spinner from '../components/ui/Spinner'
 import { useAuth } from '../context/AuthContext'
-import { getCharities, selectCharity } from '../services/charities'
+import { createDonationCheckout, getCharities, selectCharity } from '../services/charities'
 
 function Charities() {
   const { user, refreshUser } = useAuth()
@@ -17,10 +17,13 @@ function Charities() {
   const [success, setSuccess] = useState('')
   const [selectedId, setSelectedId] = useState('')
   const [percentage, setPercentage] = useState(10)
+  const [search, setSearch] = useState('')
+  const [category, setCategory] = useState('')
+  const [donationAmount, setDonationAmount] = useState(10)
 
   useEffect(() => {
     loadCharities()
-  }, [])
+  }, [search, category])
 
   useEffect(() => {
     if (user?.charity_id) {
@@ -31,12 +34,23 @@ function Charities() {
 
   const loadCharities = async () => {
     try {
-      const { data } = await getCharities()
+      const { data } = await getCharities({ search, category })
       setCharities(data.charities || [])
     } catch {
       setError('Failed to load charities.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleDonate = async (charityId) => {
+    setError('')
+    setSuccess('')
+    try {
+      const { data } = await createDonationCheckout(charityId, Number(donationAmount))
+      window.location.assign(data.url)
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to start donation checkout.')
     }
   }
 
@@ -82,6 +96,29 @@ function Charities() {
         <Alert message={error} />
         <Alert message={success} type="success" />
 
+        <Card className="mb-8">
+          <div className="grid sm:grid-cols-3 gap-4 items-end">
+            <div className="sm:col-span-2">
+              <label className="text-[#888] text-sm font-medium">Search charities</label>
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search by name"
+                className="w-full mt-1 px-4 py-3 bg-elevated text-white rounded-lg border border-border focus:outline-none focus:border-accent"
+              />
+            </div>
+            <div>
+              <label className="text-[#888] text-sm font-medium">Category</label>
+              <input
+                value={category}
+                onChange={e => setCategory(e.target.value)}
+                placeholder="Optional"
+                className="w-full mt-1 px-4 py-3 bg-elevated text-white rounded-lg border border-border focus:outline-none focus:border-accent"
+              />
+            </div>
+          </div>
+        </Card>
+
         <div className="grid sm:grid-cols-2 gap-4 mb-8">
           {charities.length === 0 ? (
             <Card className="sm:col-span-2 text-center">
@@ -100,7 +137,32 @@ function Charities() {
                   <span className="text-accent text-xs font-semibold mb-2 block">Featured</span>
                 )}
                 <h3 className="text-white font-semibold mb-1">{charity.name}</h3>
+                {charity.category && (
+                  <p className="text-accent text-xs mb-2">{charity.category}</p>
+                )}
                 <p className="text-[#888] text-sm">{charity.description}</p>
+                <div className="flex flex-wrap gap-3 mt-4">
+                  {charity.website_url && (
+                    <a href={charity.website_url} target="_blank" rel="noreferrer" className="text-accent text-xs">
+                      Profile
+                    </a>
+                  )}
+                  {charity.events_url && (
+                    <a href={charity.events_url} target="_blank" rel="noreferrer" className="text-accent text-xs">
+                      Events
+                    </a>
+                  )}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleDonate(charity.id)
+                    }}
+                    className="text-accent text-xs"
+                  >
+                    Donate ${donationAmount}
+                  </button>
+                </div>
               </Card>
             ))
           )}
@@ -110,6 +172,16 @@ function Charities() {
           <Card>
             <h2 className="text-white font-semibold mb-4">Your contribution</h2>
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+              <div>
+                <label className="text-[#888] text-sm font-medium">One-off donation amount</label>
+                <input
+                  type="number"
+                  min={1}
+                  value={donationAmount}
+                  onChange={e => setDonationAmount(e.target.value)}
+                  className="w-full mt-1 px-4 py-3 bg-elevated text-white rounded-lg border border-border focus:outline-none focus:border-accent"
+                />
+              </div>
               <div>
                 <label className="text-[#888] text-sm font-medium">
                   Contribution: {percentage}%
