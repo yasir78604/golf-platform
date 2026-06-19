@@ -76,7 +76,7 @@ const register = async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000
     }
 
-    res.cookie('token', token, cookieOptions)
+    // res.cookie('token', token, cookieOptions)
 
     res.status(201).json({
       message: 'Registered successfully',
@@ -146,7 +146,7 @@ const login = async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000
     }
 
-    res.cookie('token', token, cookieOptions)
+    // res.cookie('token', token, cookieOptions)
 
     res.status(200).json({
       message: "Logged in successfully",
@@ -173,15 +173,68 @@ const logout = async (req, res) => {
   })
 }
 
+// const getMe = async (req, res) => {
+//   try {
+//     const { data: user } = await supabase
+//       .from('users')
+//       .select('id, email, name, country, role, subscription_status, subscription_plan, subscription_end_date, charity_id, charity_percentage')
+//       .eq('id', req.user.id)
+//       .single()
+
+//     if (user?.charity_id) {
+//       const { data: charity } = await supabase
+//         .from('charities')
+//         .select('name')
+//         .eq('id', user.charity_id)
+//         .single()
+
+//       user.charity_name = charity?.name || null
+//     }
+
+//     res.status(200).json({ user })
+//   } catch (err) {
+//     res.status(500).json({ message: err.message })
+//   }
+// }
+
 const getMe = async (req, res) => {
   try {
-    const { data: user } = await supabase
+    console.log("REQ USER FROM JWT:", req.user)
+
+    const { data: user, error } = await supabase
       .from('users')
-      .select('id, email, name, country, role, subscription_status, subscription_plan, subscription_end_date, charity_id, charity_percentage')
+      .select(`
+        id,
+        email,
+        name,
+        country,
+        role,
+        subscription_status,
+        subscription_plan,
+        subscription_end_date,
+        charity_id,
+        charity_percentage
+      `)
       .eq('id', req.user.id)
       .single()
 
-    if (user?.charity_id) {
+    console.log("SUPABASE USER:", user)
+    console.log("SUPABASE ERROR:", error)
+
+    if (error) {
+      return res.status(404).json({
+        message: "User not found",
+        error
+      })
+    }
+
+    if (!user) {
+      return res.status(404).json({
+        message: "No user returned"
+      })
+    }
+
+    if (user.charity_id) {
       const { data: charity } = await supabase
         .from('charities')
         .select('name')
@@ -191,9 +244,14 @@ const getMe = async (req, res) => {
       user.charity_name = charity?.name || null
     }
 
-    res.status(200).json({ user })
+    return res.status(200).json({ user })
+
   } catch (err) {
-    res.status(500).json({ message: err.message })
+    console.log("GETME FAILED:", err)
+
+    return res.status(500).json({
+      message: err.message
+    })
   }
 }
 
