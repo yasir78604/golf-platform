@@ -6,24 +6,60 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
+  // useEffect(() => {
+  //   const getMe = async () => {
+  //     try {
+  //       const { data } = await api.get('/api/auth/me')
+
+  //       if (data?.user) {
+  //         setUser(data.user)
+  //       } else {
+  //         setUser(null)
+  //       }
+  //     } catch (err) {
+  //       console.log("AUTH FAILED", err.response?.data)
+  //       setUser(null)
+  //     } finally {
+  //       setLoading(false)
+  //     }
+  //   }
+
+  //   getMe()
+  // }, [])
+
   useEffect(() => {
+    console.log("TOKEN ON REFRESH:",
+      localStorage.getItem("token")
+    )
+  
     const getMe = async () => {
       try {
-        const { data } = await api.get('/api/auth/me')
-
+        console.log("CALLING /ME")
+  
+        const { data } =
+          await api.get('/api/auth/me')
+  
+        console.log("ME RESPONSE:", data)
+  
         if (data?.user) {
           setUser(data.user)
         } else {
           setUser(null)
         }
+  
       } catch (err) {
-        console.log("AUTH FAILED", err.response?.data)
+        console.log(
+          "AUTH FAILED:",
+          err.response?.data
+        )
+  
         setUser(null)
+  
       } finally {
         setLoading(false)
       }
     }
-
+  
     getMe()
   }, [])
 
