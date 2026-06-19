@@ -10,22 +10,61 @@ const extractToken = (req) => {
   return cookieToken || bearerToken
 }
 
-const authMiddleware = async (req, res, next) => {
-  const token = extractToken(req)
+// const authMiddleware = async (req, res, next) => {
+//   const token = extractToken(req)
 
-  if (!token) {
+//   if (!token) {
+//     return res.status(401).json({
+//       message: 'Unauthorized'
+//     })
+//   }
+
+//   try {
+//     const decoded = jwt.verify(token, process.env.JWT_SECRET)
+//     req.user = decoded
+//     next()
+//   } catch (err) {
+//     return res.status(401).json({
+//       message: 'Invalid token'
+//     })
+//   }
+// }
+
+const authMiddleware = async (req,res,next)=>{
+  const token =
+    req.cookies.token ||
+    req.headers.authorization?.split(' ')[1]
+
+  console.log("TOKEN RECEIVED:", token)
+
+  if(!token){
+    console.log("NO TOKEN")
     return res.status(401).json({
-      message: 'Unauthorized'
+      message:"Unauthorized"
     })
   }
 
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET)
+  try{
+    console.log("JWT SECRET:", process.env.JWT_SECRET)
+
+    const decoded =
+      jwt.verify(
+        token,
+        process.env.JWT_SECRET
+      )
+
+    console.log("DECODED:", decoded)
+
     req.user = decoded
+
     next()
-  } catch (err) {
+
+  }catch(err){
+
+    console.log("VERIFY FAILED:", err.message)
+
     return res.status(401).json({
-      message: 'Invalid token'
+      message:"Unauthorized"
     })
   }
 }
