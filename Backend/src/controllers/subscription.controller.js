@@ -167,10 +167,8 @@ const confirmCheckout = async (req, res) => {
     }
 
     const session = await stripe.checkout.sessions.retrieve(sessionId)
-    const sessionUserId = session.client_reference_id || session.metadata?.user_id
-
-    if (sessionUserId !== req.user.id) {
-      return res.status(403).json({ message: 'Checkout session does not belong to this user' })
+    if (!session.metadata?.user_id) {
+      return res.status(400).json({ message: 'Checkout session is missing user metadata' })
     }
 
     const user = await activateSubscriptionFromSession(session)

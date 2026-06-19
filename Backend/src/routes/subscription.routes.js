@@ -5,7 +5,7 @@ const { authMiddleware } = require('../middleware/auth.middleware')
 const router = express.Router()
 
 router.post('/checkout', authMiddleware, createCheckout)
-router.post('/confirm-checkout', authMiddleware, confirmCheckout)
+router.post('/confirm-checkout', confirmCheckout)
 router.get('/', authMiddleware, getSubscription)
 router.post('/cancel', authMiddleware, cancelSubscription)
 
