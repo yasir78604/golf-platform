@@ -474,7 +474,7 @@ function AdminDashboard() {
                                 Verify
                               </button>
                             )}
-                            {w.status !== 'rejected' && (
+                            {/* {w.status !== 'rejected' && (
                               <button
                                 onClick={() => handleVerifyWinner(w.id, 'rejected')}
                                 className="text-red-300 text-sm hover:text-red-200 mr-3"
@@ -489,7 +489,8 @@ function AdminDashboard() {
                               >
                                 Mark paid
                               </button>
-                            )}
+                            )} */}
+                           { <p className="text-red-300 text-sm hover:text-red-200 mr-3">Paid</p>}
                           </td>
                         </tr>
                       ))}
