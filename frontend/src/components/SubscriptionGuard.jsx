@@ -5,8 +5,9 @@ function SubscriptionGuard({ children }) {
   const { user } = useAuth()
 
   if (user?.subscription_status === 'pending') {
-    return <Navigate to="/pricing?success=true" replace={true} />
+    return <Navigate to="/payment-success?success=true" replace />
   }
+
 
   if (user?.subscription_status !== 'active') {
     return <Navigate to="/pricing" replace={true} />

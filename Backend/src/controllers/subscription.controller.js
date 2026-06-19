@@ -24,7 +24,8 @@ const createCheckout = async (req, res) => {
       payment_method_types: ['card'],
       mode: 'subscription',
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${process.env.FRONTEND_URL}/dashboard?success=true`,
+      success_url: `${process.env.FRONTEND_URL}/payment-success?success=true`,
+
       cancel_url: `${process.env.FRONTEND_URL}/pricing`,
       metadata: {
         user_id: req.user.id,

@@ -33,30 +33,31 @@ function Pricing() {
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
 
+  // Fallback: if someone lands here with success=true
   useEffect(() => {
-    if (searchParams.get('success') === 'true') {
-      const confirmSubscription = async () => {
-        setMessage('Payment successful. Checking your membership status...')
-        try {
-          await refreshUser()
+    if (searchParams.get('success') !== 'true') return
 
-          if (user?.subscription_status === 'active') {
-            navigate('/dashboard')
-            return
-          }
+    const run = async () => {
+      try {
+        await refreshUser()
 
-          if (user?.subscription_status === 'pending') {
-            setMessage('Payment successful. Waiting for admin approval to activate your membership.')
-            return
-          }
-
-          setMessage('Payment received. Please wait while your membership is being verified.')
-        } catch {
-          setError('Payment succeeded, but we could not verify your subscription yet.')
+        if (user?.subscription_status === 'active') {
+          navigate('/dashboard')
+          return
         }
+
+        if (user?.subscription_status === 'pending') {
+          navigate('/payment-success?success=true', { replace: true })
+          return
+        }
+
+        setMessage('Payment successful. Checking your membership status...')
+      } catch {
+        setError('Payment succeeded, but we could not verify your subscription yet.')
       }
-      confirmSubscription()
     }
+
+    run()
   }, [searchParams, refreshUser, user, navigate])
 
   const handleSubscribe = async (plan) => {
@@ -72,6 +73,7 @@ function Pricing() {
 
     setError('')
     setLoading(plan)
+
     try {
       const { data } = await createCheckout(plan)
       window.location.href = data.url
@@ -107,17 +109,21 @@ function Pricing() {
                   Best value
                 </span>
               )}
+
               <h2 className="text-xl font-bold text-white mb-1">{plan.name}</h2>
               <div className="mb-4">
                 <span className="text-3xl font-bold text-white">{plan.price}</span>
                 <span className="text-[#888] text-sm">{plan.period}</span>
               </div>
+
               <p className="text-[#888] text-sm mb-6">{plan.desc}</p>
+
               <ul className="text-[#888] text-sm space-y-2 mb-6">
                 <li>✓ Log up to 5 scores</li>
                 <li>✓ Monthly prize draws</li>
                 <li>✓ Charity contribution</li>
               </ul>
+
               <Button
                 disabled={loading === plan.id || user?.subscription_status === 'active'}
                 onClick={() => handleSubscribe(plan.id)}
@@ -131,7 +137,10 @@ function Pricing() {
         {!user && (
           <p className="text-center text-[#888] text-sm mt-8">
             Already have an account?{' '}
-            <Link to="/login" className="text-accent font-semibold hover:text-[#00b386]">
+            <Link
+              to="/login"
+              className="text-accent font-semibold hover:text-[#00b386]"
+            >
               Sign in
             </Link>
           </p>
@@ -142,3 +151,4 @@ function Pricing() {
 }
 
 export default Pricing
+
