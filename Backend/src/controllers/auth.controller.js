@@ -207,7 +207,6 @@ const getMe = async (req, res) => {
         id,
         email,
         name,
-        country,
         role,
         subscription_status,
         subscription_plan,
@@ -266,9 +265,9 @@ const updateProfile = async (req, res) => {
 
     const { data: user, error } = await supabase
       .from('users')
-      .update({ name, country })
+      .update({ name })
       .eq('id', req.user.id)
-      .select('id, email, name, country, role, subscription_status, subscription_plan, subscription_end_date, charity_id, charity_percentage')
+      .select('id, email, name, role, subscription_status, subscription_plan, subscription_end_date, charity_id, charity_percentage')
       .single()
 
     if (error) throw error
