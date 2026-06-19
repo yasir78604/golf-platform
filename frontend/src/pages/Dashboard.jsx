@@ -290,12 +290,7 @@ function Dashboard() {
                 value={activeProfileForm.name}
                 onChange={e => setProfileForm(p => ({ ...(p ?? activeProfileForm), name: e.target.value }))}
               />
-              <FormField
-                label="Country"
-                value={activeProfileForm.country}
-                onChange={e => setProfileForm(p => ({ ...(p ?? activeProfileForm), country: e.target.value }))}
-                placeholder="Country"
-              />
+
               <Button type="submit">Save Profile</Button>
             </form>
           </Card>
