@@ -6,21 +6,6 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  // useEffect(() => {
-  //   const getMe = async () => {
-  //     try {
-  //       const { data } = await api.get('/api/auth/me')
-  //       setUser(data.user)
-  //     } catch {
-  //       setUser(null)
-  //     } finally {
-  //       setLoading(false)
-  //     }
-  //   }
-  //   getMe()
-  // }, [])
-
-
   useEffect(() => {
     const getMe = async () => {
       try {
@@ -28,13 +13,12 @@ export function AuthProvider({ children }) {
 
         if (data?.user) {
           setUser(data.user)
+        } else {
+          setUser(null)
         }
       } catch (err) {
-        console.log("AUTH CHECK FAILED:", err.response?.data)
-
-        // DO NOT immediately destroy session
-        // remove this:
-        // setUser(null)
+        console.log("AUTH FAILED", err.response?.data)
+        setUser(null)
       } finally {
         setLoading(false)
       }
@@ -45,30 +29,64 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password) => {
     const { data } = await api.post('/api/auth/login', {
-      email, password
+      email,
+      password
     })
-    localStorage.setItem(
-      'token',
-      data.token
-    )
-    
+
+    if (data.token) {
+      localStorage.setItem('token', data.token)
+    }
+
     setUser(data.user)
     return data.user
   }
 
-  const register = async (email, password, name, charity_id, charity_percentage = 10) => {
+  const register = async (
+    email,
+    password,
+    name,
+    charity_id,
+    charity_percentage = 10
+  ) => {
     const { data } = await api.post('/api/auth/register', {
-      email, password, name, charity_id, charity_percentage
+      email,
+      password,
+      name,
+      charity_id,
+      charity_percentage
     })
 
-    localStorage.setItem(
-      'token',
-      data.token
-    )
-    
+    if (data.token) {
+      localStorage.setItem('token', data.token)
+    }
+
     setUser(data.user)
     return data.user
   }
+
+  const logout = async () => {
+    try {
+      await api.post('/api/auth/logout')
+    } catch (err) {}
+
+    localStorage.removeItem('token')
+    setUser(null)
+  }
+
+  const refreshUser = useCallback(async () => {
+    try {
+      const { data } = await api.get('/api/auth/me')
+
+      if (data?.user) {
+        setUser(data.user)
+        return data.user
+      }
+
+      return null
+    } catch (err) {
+      return null
+    }
+  }, [])
 
   const updateProfile = async (updates) => {
     const { data } = await api.patch('/api/auth/me', updates)
@@ -76,48 +94,19 @@ export function AuthProvider({ children }) {
     return data.user
   }
 
-  const logout = async () => {
-    await api.post('/api/auth/logout')
-
-    localStorage.removeItem('token')
-    setUser(null)
-  }
-
-  // const refreshUser = useCallback(async () => {
-  //   try {
-  //     const { data } = await api.get('/api/auth/me')
-  //     setUser(data.user)
-  //     return data.user
-  //   } catch {
-  //     setUser(null)
-  //     return null
-  //   }
-  // }, [])
-
-  const refreshUser = useCallback(async () => {
-    try {
-      const { data } = await api.get('/api/auth/me')
-  
-      if (data?.user) {
-        setUser(data.user)
-        return data.user
-      }
-  
-      return null
-    } catch (err) {
-      console.log("REFRESH FAILED:", err.response?.data)
-  
-      // DO NOT DO THIS
-      // setUser(null)
-  
-      return null
-    }
-  }, [])
-
   return (
-    <AuthContext.Provider value={{
-      user, setUser, loading, login, register, logout, refreshUser, updateProfile
-    }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        setUser,
+        loading,
+        login,
+        register,
+        logout,
+        refreshUser,
+        updateProfile
+      }}
+    >
       {children}
     </AuthContext.Provider>
   )

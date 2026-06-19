@@ -29,17 +29,13 @@ const allowedOrigins = [
 ].filter(Boolean) // Remove undefined values
 
 app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true)
-    } else {
-      console.warn(`CORS blocked: ${origin}`)
-      callback(null, true) // Allow for now, check in logs
-    }
-  },
+  origin: [
+    process.env.FRONTEND_URL,
+    'http://localhost:5173'
+  ],
   credentials: true,
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+  methods: ['GET','POST','PUT','DELETE'],
+  allowedHeaders: ['Content-Type','Authorization']
 }))
 
 app.use('/api/auth', authRoutes)

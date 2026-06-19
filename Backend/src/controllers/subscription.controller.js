@@ -58,28 +58,20 @@ const getFrontendUrl = () => process.env.FRONTEND_URL?.trim().replace(/\/+$/, ''
 
 
 const activateSubscriptionFromSession = async (session) => {
-  console.log("========== START ==========")
-
-  console.log("FULL SESSION:", session)
-
   const { user_id, plan } = session.metadata || {}
 
-  console.log("USER ID:", user_id)
-  console.log("PLAN:", plan)
-
-  console.log("PAYMENT STATUS:", session.payment_status)
-
-  console.log("SUBSCRIPTION ID:", session.subscription)
+  if (!user_id || !plan) {
+    throw new Error('Invalid metadata')
+  }
 
   const stripeSubscription =
     await stripe.subscriptions.retrieve(session.subscription)
 
-  console.log("STRIPE SUB:", stripeSubscription)
-
   const endDate =
     new Date(stripeSubscription.current_period_end * 1000)
 
-  console.log("UPDATING USER TABLE...")
+  const startDate =
+    new Date(stripeSubscription.current_period_start * 1000)
 
   const { data: user, error: userError } =
     await supabase
@@ -91,15 +83,30 @@ const activateSubscriptionFromSession = async (session) => {
       })
       .eq('id', user_id)
       .select()
-
-  console.log("UPDATED USER:", user)
+      .single()
 
   if (userError) {
-    console.log("USER ERROR:", userError)
     throw userError
   }
 
-  console.log("========== DONE ==========")
+  const { error: subError } =
+    await supabase
+      .from('subscriptions')
+      .upsert({
+        user_id,
+        plan,
+        amount: plan === 'monthly' ? 9.99 : 99.99,
+        stripe_session_id: session.id,
+        stripe_customer_id: session.customer,
+        stripe_subscription_id: session.subscription,
+        status: 'active',
+        start_date: startDate,
+        end_date: endDate
+      })
+
+  if (subError) {
+    throw subError
+  }
 
   return user
 }

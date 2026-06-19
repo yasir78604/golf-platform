@@ -92,6 +92,16 @@ function AdminDashboard() {
     }
   }, [activeTab, loadTabData])
 
+  useEffect(() => {
+    if (activeTab !== 'Users') return
+  
+    const interval = setInterval(() => {
+      loadTabData('Users')
+    }, 5000)
+  
+    return () => clearInterval(interval)
+  }, [activeTab, loadTabData])
+
   const handleCreateDraw = async (e) => {
     e.preventDefault()
     setError('')

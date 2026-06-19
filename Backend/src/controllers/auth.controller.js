@@ -69,8 +69,8 @@ const register = async (req, res) => {
 
     const cookieOptions = {
       httpOnly: true,
-      sameSite: 'none',
-      secure: true,
+      sameSite: 'lax',
+      secure: false,
       maxAge: 7 * 24 * 60 * 60 * 1000
     }
 
@@ -137,8 +137,8 @@ const login = async (req, res) => {
 
     const cookieOptions = {
       httpOnly: true,
-      sameSite: 'none',
-      secure: true,
+      sameSite: 'lax',
+      secure: false,
       maxAge: 7 * 24 * 60 * 60 * 1000
     }
 
@@ -162,12 +162,11 @@ const login = async (req, res) => {
 }
 
 const logout = async (req, res) => {
-  const cookieOptions = {
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-    secure: process.env.NODE_ENV === 'production'
-  }
-  res.clearCookie('token', cookieOptions)
-  res.status(200).json({ message: "Logged out successfully" })
+  res.clearCookie('token')
+
+  res.status(200).json({
+    message: 'Logged out successfully'
+  })
 }
 
 const getMe = async (req, res) => {

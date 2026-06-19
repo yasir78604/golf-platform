@@ -1,97 +1,65 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
 import Card from '../components/ui/Card'
-import Button from '../components/ui/Button'
-import Alert from '../components/ui/Alert'
 import Spinner from '../components/ui/Spinner'
-import { useAuth } from '../context/useAuth'
+import Alert from '../components/ui/Alert'
 import { confirmCheckout } from '../services/subscriptions'
+import { useAuth } from '../context/useAuth'
 
 function PaymentSuccess() {
-  const { user, refreshUser } = useAuth()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
+  const { refreshUser } = useAuth()
 
-  const [loading, setLoading] = useState(() => searchParams.get('success') === 'true')
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  const status = user?.subscription_status
-
-  const message = useMemo(() => {
-    if (status === 'active') {
-      return {
-        type: 'success',
-        text: 'Payment successful! Your membership is active.'
-      }
-    }
-
-    return {
-      type: 'info',
-      text: 'Payment successful. Activating your membership...'
-    }
-  }, [status])
-
   useEffect(() => {
-    const success = searchParams.get('success')
-    const sessionId = searchParams.get('session_id')
-
-    if (success !== 'true') {
-      return
-    }
-
     const run = async () => {
       try {
-        if (sessionId) {
-          await confirmCheckout(sessionId)
+        const sessionId = searchParams.get('session_id')
+
+        if (!sessionId) {
+          throw new Error("No session id")
         }
 
-        const refreshedUser = await refreshUser()
+        await confirmCheckout(sessionId)
 
-        if (refreshedUser?.subscription_status === 'active') {
-          navigate('/dashboard', { replace: true })
+        await new Promise((resolve) =>
+          setTimeout(resolve, 2000)
+        )
+
+        const user = await refreshUser()
+
+        if (user?.subscription_status === 'active') {
+          navigate('/dashboard')
+          return
         }
-      } catch {
-        setError('Payment succeeded, but we could not activate your subscription yet. Please try refreshing this page.')
+
+        setError("Subscription not activated yet")
+
+      } catch (err) {
+        setError("Payment done but activation failed")
       } finally {
         setLoading(false)
       }
     }
 
     run()
-  }, [searchParams, refreshUser, navigate])
-
-  useEffect(() => {
-    if (loading) return
-    if (status === 'active') {
-      navigate('/dashboard', { replace: true })
-    }
-  }, [loading, status, navigate])
+  }, [])
 
   return (
     <Layout>
-      <div className="max-w-xl mx-auto px-4 py-16">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Payment Success</h1>
-          <p className="text-[#888]">Activating your subscription and opening your dashboard.</p>
-        </div>
-
+      <div className="max-w-xl mx-auto py-20">
         {loading ? (
-          <div className="flex justify-center py-12">
-            <Spinner />
-          </div>
+          <Spinner />
         ) : (
           <Card>
-            <Alert message={error || message.text} type={error ? 'error' : message.type} />
-
-            <div className="mt-6 flex gap-3">
-              <Button type="button" variant="secondary" className="flex-1" onClick={() => navigate('/pricing')}>
-                View Pricing
-              </Button>
-              <Button type="button" className="flex-1" onClick={() => navigate('/dashboard')}>
-                Go to Dashboard
-              </Button>
-            </div>
+            <Alert
+              message={error || "Payment successful"}
+              type={error ? "error" : "success"}
+            />
           </Card>
         )}
       </div>
