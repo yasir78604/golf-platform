@@ -54,12 +54,14 @@ const register = async (req, res) => {
       { expiresIn: '7d' }
     )
 
-    res.cookie('token', token, {
+    const cookieOptions = {
       httpOnly: true,
-      sameSite: 'lax',
-      secure: false,
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      secure: process.env.NODE_ENV === 'production',
       maxAge: 7 * 24 * 60 * 60 * 1000
-    })
+    }
+
+    res.cookie('token', token, cookieOptions)
 
     res.status(201).json({
       message: 'Registered successfully',
@@ -112,12 +114,14 @@ const login = async (req, res) => {
       { expiresIn: '7d' }
     )
 
-    res.cookie('token', token, {
+    const cookieOptions = {
       httpOnly: true,
-      sameSite: 'lax',
-      secure: false,
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      secure: process.env.NODE_ENV === 'production',
       maxAge: 7 * 24 * 60 * 60 * 1000
-    })
+    }
+
+    res.cookie('token', token, cookieOptions)
 
     res.status(200).json({
       message: "Logged in successfully",
@@ -136,7 +140,11 @@ const login = async (req, res) => {
 }
 
 const logout = async (req, res) => {
-  res.clearCookie('token')
+  const cookieOptions = {
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    secure: process.env.NODE_ENV === 'production'
+  }
+  res.clearCookie('token', cookieOptions)
   res.status(200).json({ message: "Logged out successfully" })
 }
 
