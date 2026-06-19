@@ -60,6 +60,8 @@ const register = async (req, res) => {
       { expiresIn: '7d' }
     )
 
+    console.log("SIGN SECRET:", process.env.JWT_SECRET)
+
     // const cookieOptions = {
     //   httpOnly: true,
     //   sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
@@ -127,6 +129,8 @@ const login = async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     )
+
+    console.log("SIGN SECRET:", process.env.JWT_SECRET)
 
     // const cookieOptions = {
     //   httpOnly: true,
