@@ -1,5 +1,5 @@
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
-const supabase = require('../db/supabase')
+const { supabase, supabaseAdmin } = require('../db/supabase')
 
 const getFrontendUrl = () => process.env.FRONTEND_URL?.trim().replace(/\/+$/, '')
 
@@ -23,7 +23,8 @@ const activateSubscriptionFromSession = async (session) => {
   const endDate = new Date(stripeSubscription.current_period_end * 1000)
   const startDate = new Date(stripeSubscription.current_period_start * 1000)
 
-  const { data: user, error: userError } = await supabase
+  // UPDATED: Changed to supabaseAdmin to bypass RLS
+  const { data: user, error: userError } = await supabaseAdmin
     .from('users')
     .update({
       subscription_status: 'active',
@@ -36,7 +37,8 @@ const activateSubscriptionFromSession = async (session) => {
 
   if (userError) throw userError
 
-  const { error: subError } = await supabase
+  // UPDATED: Changed to supabaseAdmin to bypass RLS
+  const { error: subError } = await supabaseAdmin
     .from('subscriptions')
     .upsert({
       user_id,
@@ -125,7 +127,9 @@ const stripeWebhook = async (req, res) => {
     if (event.type === 'invoice.paid' && event.data.object.subscription) {
       const stripeSubscription = await stripe.subscriptions.retrieve(event.data.object.subscription)
       const endDate = new Date(stripeSubscription.current_period_end * 1000)
-      const { data: subscription } = await supabase
+      
+      // UPDATED: Changed to supabaseAdmin to bypass RLS
+      const { data: subscription } = await supabaseAdmin
         .from('subscriptions')
         .update({ status: 'active', end_date: endDate, cancel_at_period_end: stripeSubscription.cancel_at_period_end })
         .eq('stripe_subscription_id', stripeSubscription.id)
@@ -133,13 +137,16 @@ const stripeWebhook = async (req, res) => {
         .maybeSingle()
 
       if (subscription?.user_id) {
-        await supabase.from('users').update({ subscription_status: 'active', subscription_end_date: endDate }).eq('id', subscription.user_id)
+        // UPDATED: Changed to supabaseAdmin to bypass RLS
+        await supabaseAdmin.from('users').update({ subscription_status: 'active', subscription_end_date: endDate }).eq('id', subscription.user_id)
       }
     }
 
     if (['customer.subscription.deleted', 'customer.subscription.paused'].includes(event.type)) {
       const stripeSubscription = event.data.object
-      const { data: subscription } = await supabase
+      
+      // UPDATED: Changed to supabaseAdmin to bypass RLS
+      const { data: subscription } = await supabaseAdmin
         .from('subscriptions')
         .update({ status: 'cancelled', cancel_at_period_end: false })
         .eq('stripe_subscription_id', stripeSubscription.id)
@@ -147,7 +154,8 @@ const stripeWebhook = async (req, res) => {
         .maybeSingle()
 
       if (subscription?.user_id) {
-        await supabase.from('users').update({ subscription_status: 'inactive' }).eq('id', subscription.user_id)
+        // UPDATED: Changed to supabaseAdmin to bypass RLS
+        await supabaseAdmin.from('users').update({ subscription_status: 'inactive' }).eq('id', subscription.user_id)
       }
     }
   } catch (err) {
@@ -185,6 +193,7 @@ const confirmCheckout = async (req, res) => {
 
 const getSubscription = async (req, res) => {
   try {
+    // KEPT AS SUPABASE: Safe client check using req.user context
     const { data: sub } = await supabase
       .from('subscriptions')
       .select()
@@ -202,6 +211,7 @@ const getSubscription = async (req, res) => {
 
 const cancelSubscription = async (req, res) => {
   try {
+    // KEPT AS SUPABASE: Safe client check using req.user context
     const { data: subscription, error } = await supabase
       .from('subscriptions')
       .select('id, stripe_subscription_id, end_date')
@@ -217,7 +227,9 @@ const cancelSubscription = async (req, res) => {
     }
 
     await stripe.subscriptions.update(subscription.stripe_subscription_id, { cancel_at_period_end: true })
-    await supabase.from('subscriptions').update({ cancel_at_period_end: true }).eq('id', subscription.id)
+    
+    // UPDATED: Changed to supabaseAdmin to update record safely during client request loop
+    await supabaseAdmin.from('subscriptions').update({ cancel_at_period_end: true }).eq('id', subscription.id)
 
     res.status(200).json({
       message: 'Subscription will cancel at the end of the current billing period',
