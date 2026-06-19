@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Layout from '../components/Layout'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import Alert from '../components/ui/Alert'
 import Spinner from '../components/ui/Spinner'
-import { useAuth } from '../context/AuthContext'
+import { useAuth } from '../context/useAuth'
 import { createDonationCheckout, getCharities, selectCharity } from '../services/charities'
 
 function Charities() {
@@ -16,23 +16,15 @@ function Charities() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [selectedId, setSelectedId] = useState('')
-  const [percentage, setPercentage] = useState(10)
+  const [percentage, setPercentage] = useState(null)
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('')
   const [donationAmount, setDonationAmount] = useState(10)
 
-  useEffect(() => {
-    loadCharities()
-  }, [search, category])
+  const activeSelectedId = selectedId || user?.charity_id || ''
+  const activePercentage = percentage ?? user?.charity_percentage ?? 10
 
-  useEffect(() => {
-    if (user?.charity_id) {
-      setSelectedId(user.charity_id)
-      setPercentage(user.charity_percentage || 10)
-    }
-  }, [user])
-
-  const loadCharities = async () => {
+  const loadCharities = useCallback(async () => {
     try {
       const { data } = await getCharities({ search, category })
       setCharities(data.charities || [])
@@ -41,7 +33,17 @@ function Charities() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [search, category])
+
+  useEffect(() => {
+    let cancelled = false
+    Promise.resolve().then(() => {
+      if (!cancelled) loadCharities()
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [loadCharities])
 
   const handleDonate = async (charityId) => {
     setError('')
@@ -63,7 +65,7 @@ function Charities() {
     setSubmitting(true)
 
     try {
-      await selectCharity(selectedId, Number(percentage))
+      await selectCharity(activeSelectedId, Number(activePercentage))
       await refreshUser?.()
       setSuccess('Charity preference saved.')
     } catch (err) {
@@ -129,7 +131,7 @@ function Charities() {
               <Card
                 key={charity.id}
                 className={`cursor-pointer transition-colors ${
-                  selectedId === charity.id ? 'border-accent/50' : 'hover:border-[#333]'
+                  activeSelectedId === charity.id ? 'border-accent/50' : 'hover:border-[#333]'
                 }`}
                 onClick={() => user && setSelectedId(charity.id)}
               >
@@ -184,19 +186,19 @@ function Charities() {
               </div>
               <div>
                 <label className="text-[#888] text-sm font-medium">
-                  Contribution: {percentage}%
+                  Contribution: {activePercentage}%
                 </label>
                 <input
                   type="range"
                   min={10}
                   max={100}
-                  value={percentage}
+                  value={activePercentage}
                   onChange={e => setPercentage(e.target.value)}
                   className="w-full mt-2 accent-accent"
                 />
                 <p className="text-[#888] text-xs mt-1">Minimum 10% of your winnings go to charity.</p>
               </div>
-              <Button type="submit" disabled={submitting || !selectedId}>
+              <Button type="submit" disabled={submitting || !activeSelectedId}>
                 {submitting ? 'Saving...' : 'Save Preference'}
               </Button>
             </form>

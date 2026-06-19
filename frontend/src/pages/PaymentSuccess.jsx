@@ -5,17 +5,17 @@ import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import Alert from '../components/ui/Alert'
 import Spinner from '../components/ui/Spinner'
-import { useAuth } from '../context/AuthContext'
+import { useAuth } from '../context/useAuth'
+import { confirmCheckout } from '../services/subscriptions'
 
 function PaymentSuccess() {
   const { user, refreshUser } = useAuth()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
 
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(() => searchParams.get('success') === 'true')
   const [error, setError] = useState('')
 
-  // status may be stale until refreshUser() finishes.
   const status = user?.subscription_status
 
   const message = useMemo(() => {
@@ -26,42 +26,40 @@ function PaymentSuccess() {
       }
     }
 
-    if (status === 'pending') {
-      return {
-        type: 'info',
-        text: 'Payment received. Checking your membership status…'
-      }
-    }
-
     return {
       type: 'info',
-      text: 'Payment received. Checking your membership status…'
+      text: 'Payment successful. Activating your membership...'
     }
-
   }, [status])
 
   useEffect(() => {
     const success = searchParams.get('success')
+    const sessionId = searchParams.get('session_id')
 
-    // If someone visits this page without the success param, just stop loading.
     if (success !== 'true') {
-      setLoading(false)
       return
     }
 
     const run = async () => {
       try {
-        await refreshUser()
+        if (sessionId) {
+          await confirmCheckout(sessionId)
+        }
+
+        const refreshedUser = await refreshUser()
+
+        if (refreshedUser?.subscription_status === 'active') {
+          navigate('/dashboard', { replace: true })
+        }
       } catch {
-        setError('Payment succeeded, but we could not verify your subscription yet.')
+        setError('Payment succeeded, but we could not activate your subscription yet. Please try refreshing this page.')
       } finally {
         setLoading(false)
       }
     }
 
     run()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, refreshUser])
+  }, [searchParams, refreshUser, navigate])
 
   useEffect(() => {
     if (loading) return
@@ -70,14 +68,12 @@ function PaymentSuccess() {
     }
   }, [loading, status, navigate])
 
-
   return (
     <Layout>
       <div className="max-w-xl mx-auto px-4 py-16">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-white mb-2">Payment Success</h1>
-          <p className="text-[#888]">Payment received—verifying your membership access…</p>
-
+          <p className="text-[#888]">Activating your subscription and opening your dashboard.</p>
         </div>
 
         {loading ? (
@@ -88,19 +84,12 @@ function PaymentSuccess() {
           <Card>
             <Alert message={error || message.text} type={error ? 'error' : message.type} />
 
-            {status !== 'active' && (
-              <div className="mt-4 text-center text-[#888] text-sm">
-                If access isn’t unlocked yet, it may be taking a moment to sync.
-              </div>
-            )}
-
-
             <div className="mt-6 flex gap-3">
               <Button type="button" variant="secondary" className="flex-1" onClick={() => navigate('/pricing')}>
                 View Pricing
               </Button>
-              <Button type="button" className="flex-1" onClick={() => navigate('/charities')}>
-                Go to App
+              <Button type="button" className="flex-1" onClick={() => navigate('/dashboard')}>
+                Go to Dashboard
               </Button>
             </div>
           </Card>
@@ -111,4 +100,3 @@ function PaymentSuccess() {
 }
 
 export default PaymentSuccess
-

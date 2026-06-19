@@ -1,6 +1,6 @@
 const express = require('express')
 const {
-  getUsers, updateUser, approveMembership,
+  getUsers,
   createDraw, executeDraw, publishDraw,
   getDrawsAdmin, previewDraw,
   getWinners, verifyWinner,
@@ -12,8 +12,6 @@ const router = express.Router()
 
 // Users
 router.get('/users', adminMiddleware, getUsers)
-router.patch('/users/:id', adminMiddleware, updateUser)
-router.patch('/memberships/:id/approve', adminMiddleware, approveMembership)
 
 // Draws
 router.get('/draws', adminMiddleware, getDrawsAdmin)

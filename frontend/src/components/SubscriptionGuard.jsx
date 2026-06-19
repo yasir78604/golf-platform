@@ -1,5 +1,5 @@
 import { Navigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
+import { useAuth } from '../context/useAuth'
 
 function SubscriptionGuard({ children }) {
   const { user, loading } = useAuth()
@@ -8,14 +8,11 @@ function SubscriptionGuard({ children }) {
     return null
   }
 
-  // Allow dashboard only for active subscribers.
-  if (user?.subscription_status === 'active') {
-    return children
+  if (user?.subscription_status !== 'active') {
+    return <Navigate to="/pricing" replace />
   }
 
-  // Any other state (pending/inactive/unknown) -> pricing
-  return <Navigate to="/pricing" replace />
+  return children
 }
-
 
 export default SubscriptionGuard

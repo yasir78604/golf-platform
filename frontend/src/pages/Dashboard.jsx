@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import Layout from '../components/Layout'
 import Card from '../components/ui/Card'
@@ -6,7 +6,7 @@ import Button from '../components/ui/Button'
 import FormField from '../components/ui/FormField'
 import Alert from '../components/ui/Alert'
 import Spinner from '../components/ui/Spinner'
-import { useAuth } from '../context/AuthContext'
+import { useAuth } from '../context/useAuth'
 import { getScores, addScore, updateScore, deleteScore } from '../services/scores'
 import { getMyResults, getDraws, submitWinnerProof } from '../services/draws'
 import { cancelSubscription } from '../services/subscriptions'
@@ -19,28 +19,20 @@ function Dashboard() {
   const [draws, setDraws] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
+  const [success, setSuccess] = useState(() =>
+    searchParams.get('success') === 'true' ? 'Subscription activated! You can now log scores.' : ''
+  )
   const [submitting, setSubmitting] = useState(false)
 
   const [score, setScore] = useState('')
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [editingId, setEditingId] = useState(null)
-  const [profileForm, setProfileForm] = useState({ name: user?.name || '', country: user?.country || '' })
+  const [profileForm, setProfileForm] = useState(null)
   const [proofFiles, setProofFiles] = useState({})
 
-  useEffect(() => {
-    if (searchParams.get('success') === 'true') {
-      refreshUser?.()
-      setSuccess('Subscription activated! You can now log scores.')
-    }
-    loadData()
-  }, [])
+  const activeProfileForm = profileForm ?? { name: user?.name || '', country: user?.country || '' }
 
-  useEffect(() => {
-    setProfileForm({ name: user?.name || '', country: user?.country || '' })
-  }, [user])
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true)
     try {
       const [scoresRes, resultsRes, drawsRes] = await Promise.all([
@@ -56,7 +48,21 @@ function Dashboard() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    Promise.resolve().then(() => {
+      if (cancelled) return
+      if (searchParams.get('success') === 'true') {
+        refreshUser?.()
+      }
+      loadData()
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [loadData, refreshUser, searchParams])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -112,7 +118,8 @@ function Dashboard() {
     setError('')
     setSuccess('')
     try {
-      await updateProfile?.(profileForm)
+      await updateProfile?.(activeProfileForm)
+      setProfileForm(null)
       setSuccess('Profile updated.')
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to update profile.')
@@ -280,13 +287,13 @@ function Dashboard() {
             <form onSubmit={handleProfileSubmit} className="grid sm:grid-cols-3 gap-4 items-end">
               <FormField
                 label="Name"
-                value={profileForm.name}
-                onChange={e => setProfileForm(p => ({ ...p, name: e.target.value }))}
+                value={activeProfileForm.name}
+                onChange={e => setProfileForm(p => ({ ...(p ?? activeProfileForm), name: e.target.value }))}
               />
               <FormField
                 label="Country"
-                value={profileForm.country}
-                onChange={e => setProfileForm(p => ({ ...p, country: e.target.value }))}
+                value={activeProfileForm.country}
+                onChange={e => setProfileForm(p => ({ ...(p ?? activeProfileForm), country: e.target.value }))}
                 placeholder="Country"
               />
               <Button type="submit">Save Profile</Button>

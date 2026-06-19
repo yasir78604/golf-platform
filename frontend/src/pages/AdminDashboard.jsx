@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Layout from '../components/Layout'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
@@ -8,8 +8,6 @@ import Spinner from '../components/ui/Spinner'
 import {
   getAnalytics,
   getUsers,
-  updateUser,
-  approveMembership,
   getAdminDraws,
   createDraw,
   simulateDraw,
@@ -57,11 +55,7 @@ function AdminDashboard() {
     editingId: null,
   })
 
-  useEffect(() => {
-    loadTabData(activeTab)
-  }, [activeTab])
-
-  const loadTabData = async (tab) => {
+  const loadTabData = useCallback(async (tab) => {
     setLoading(true)
     setError('')
     try {
@@ -86,28 +80,17 @@ function AdminDashboard() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
-  const handleApproveSubscription = async (user) => {
-    try {
-      await approveMembership(user.id)
-      setSuccess('Membership approved.');
-      loadTabData('Users')
-    } catch (err) {
-      setError(err?.response?.data?.message || 'Failed to approve membership.')
+  useEffect(() => {
+    let cancelled = false
+    Promise.resolve().then(() => {
+      if (!cancelled) loadTabData(activeTab)
+    })
+    return () => {
+      cancelled = true
     }
-  }
-
-  const handleToggleSubscription = async (user) => {
-    const newStatus = user.subscription_status === 'active' ? 'inactive' : 'active'
-    try {
-      await updateUser(user.id, { subscription_status: newStatus })
-      setSuccess(`User subscription ${newStatus}.`)
-      loadTabData('Users')
-    } catch {
-      setError('Failed to update user.')
-    }
-  }
+  }, [activeTab, loadTabData])
 
   const handleCreateDraw = async (e) => {
     e.preventDefault()
@@ -298,7 +281,6 @@ function AdminDashboard() {
                         <th className="text-left py-3 pr-4">Email</th>
                         <th className="text-left py-3 pr-4">Role</th>
                         <th className="text-left py-3 pr-4">Status</th>
-                        <th className="text-left py-3">Action</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -314,23 +296,6 @@ function AdminDashboard() {
                               }`}>
                               {u.subscription_status || 'inactive'}
                             </span>
-                          </td>
-                          <td className="py-3">
-                            {u.subscription_status === 'pending' ? (
-                              <button
-                                onClick={() => handleApproveSubscription(u)}
-                                className="text-accent text-sm hover:text-[#00b386]"
-                              >
-                                Approve
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => handleToggleSubscription(u)}
-                                className="text-accent text-sm hover:text-[#00b386]"
-                              >
-                                Toggle sub
-                              </button>
-                            )}
                           </td>
                         </tr>
                       ))}

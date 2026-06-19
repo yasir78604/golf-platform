@@ -2,8 +2,6 @@ import api from './api'
 
 export const getAnalytics = () => api.get('/api/admin/analytics')
 export const getUsers = () => api.get('/api/admin/users')
-export const updateUser = (id, updates) => api.patch(`/api/admin/users/${id}`, updates)
-export const approveMembership = (id) => api.patch(`/api/admin/memberships/${id}/approve`)
 
 export const getAdminDraws = () => api.get('/api/admin/draws')
 export const createDraw = (month, year, draw_type) =>

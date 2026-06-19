@@ -4,7 +4,7 @@ import Layout from '../components/Layout'
 import Button from '../components/ui/Button'
 import Card from '../components/ui/Card'
 import Alert from '../components/ui/Alert'
-import { useAuth } from '../context/AuthContext'
+import { useAuth } from '../context/useAuth'
 import { createCheckout } from '../services/subscriptions'
 
 const plans = [
@@ -31,11 +31,12 @@ function Pricing() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(null)
   const [error, setError] = useState('')
-  const [message, setMessage] = useState('')
 
   // Fallback: if someone lands here with success=true
   useEffect(() => {
     if (searchParams.get('success') !== 'true') return
+
+    const sessionId = searchParams.get('session_id')
 
     const run = async () => {
       try {
@@ -46,14 +47,13 @@ function Pricing() {
           return
         }
 
-        if (refreshedUser?.subscription_status === 'pending') {
-          navigate('/payment-success?success=true', { replace: true })
-          return
-        }
+        const paymentSuccessUrl = sessionId
+          ? `/payment-success?success=true&session_id=${encodeURIComponent(sessionId)}`
+          : '/payment-success?success=true'
 
-        setMessage('Payment successful. Checking your membership status...')
+        navigate(paymentSuccessUrl, { replace: true })
       } catch {
-        setError('Payment succeeded, but we could not verify your subscription yet.')
+        setError('Payment succeeded, but we could not activate your subscription yet.')
       }
     }
 
@@ -92,7 +92,6 @@ function Pricing() {
         </div>
 
         <Alert message={error} />
-        <Alert message={message} type="success" />
 
         {user?.subscription_status === 'active' && (
           <Alert message="You already have an active subscription." type="success" />

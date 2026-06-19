@@ -3,6 +3,59 @@ const supabase = require('../db/supabase')
 
 const getFrontendUrl = () => process.env.FRONTEND_URL?.trim().replace(/\/+$/, '')
 
+const activateSubscriptionFromSession = async (session) => {
+  const { user_id, plan } = session.metadata || {}
+  if (!user_id || !plan) throw new Error('Checkout session is missing user metadata')
+
+  if (!['monthly', 'yearly'].includes(plan)) {
+    throw new Error('Checkout session has an invalid plan')
+  }
+
+  if (session.payment_status !== 'paid') {
+    throw new Error('Checkout session is not paid yet')
+  }
+
+  if (!session.subscription) {
+    throw new Error('Checkout session is missing subscription details')
+  }
+
+  const stripeSubscription = await stripe.subscriptions.retrieve(session.subscription)
+  const endDate = new Date(stripeSubscription.current_period_end * 1000)
+  const startDate = new Date(stripeSubscription.current_period_start * 1000)
+
+  const { data: user, error: userError } = await supabase
+    .from('users')
+    .update({
+      subscription_status: 'active',
+      subscription_plan: plan,
+      subscription_end_date: endDate
+    })
+    .eq('id', user_id)
+    .select('id, email, name, country, role, subscription_status, subscription_plan, subscription_end_date, charity_id, charity_percentage')
+    .single()
+
+  if (userError) throw userError
+
+  const { error: subError } = await supabase
+    .from('subscriptions')
+    .upsert({
+      user_id,
+      plan,
+      amount: plan === 'monthly' ? 9.99 : 99.99,
+      stripe_session_id: session.id,
+      stripe_customer_id: session.customer,
+      stripe_subscription_id: session.subscription,
+      status: 'active',
+      start_date: startDate,
+      end_date: endDate,
+      cancel_at_period_end: stripeSubscription.cancel_at_period_end
+    }, { onConflict: 'stripe_session_id' })
+
+  if (subError) throw subError
+
+  return user
+}
+
 const createCheckout = async (req, res) => {
   try {
     const { plan } = req.body
@@ -66,37 +119,7 @@ const stripeWebhook = async (req, res) => {
   try {
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object
-      const { user_id, plan } = session.metadata || {}
-      if (!user_id || !plan) throw new Error('Checkout session is missing user metadata')
-
-      const stripeSubscription = await stripe.subscriptions.retrieve(session.subscription)
-      const endDate = new Date(stripeSubscription.current_period_end * 1000)
-
-      const { error: userError } = await supabase
-        .from('users')
-        .update({
-          subscription_status: 'active',
-          subscription_plan: plan,
-          subscription_end_date: endDate
-        })
-        .eq('id', user_id)
-      if (userError) throw userError
-
-      const { error: subError } = await supabase
-        .from('subscriptions')
-        .upsert({
-          user_id,
-          plan,
-          amount: plan === 'monthly' ? 9.99 : 99.99,
-          stripe_session_id: session.id,
-          stripe_customer_id: session.customer,
-          stripe_subscription_id: session.subscription,
-          status: 'active',
-          start_date: new Date(stripeSubscription.current_period_start * 1000),
-          end_date: endDate,
-          cancel_at_period_end: stripeSubscription.cancel_at_period_end
-        }, { onConflict: 'stripe_session_id' })
-      if (subError) throw subError
+      await activateSubscriptionFromSession(session)
     }
 
     if (event.type === 'invoice.paid' && event.data.object.subscription) {
@@ -133,6 +156,33 @@ const stripeWebhook = async (req, res) => {
   }
 
   res.status(200).json({ received: true })
+}
+
+const confirmCheckout = async (req, res) => {
+  try {
+    const { sessionId } = req.body
+
+    if (!sessionId) {
+      return res.status(400).json({ message: 'Checkout session ID is required' })
+    }
+
+    const session = await stripe.checkout.sessions.retrieve(sessionId)
+    const sessionUserId = session.client_reference_id || session.metadata?.user_id
+
+    if (sessionUserId !== req.user.id) {
+      return res.status(403).json({ message: 'Checkout session does not belong to this user' })
+    }
+
+    const user = await activateSubscriptionFromSession(session)
+
+    res.status(200).json({
+      message: 'Subscription activated',
+      user
+    })
+  } catch (err) {
+    console.error('confirmCheckout error:', err)
+    res.status(500).json({ message: err.message })
+  }
 }
 
 const getSubscription = async (req, res) => {
@@ -180,4 +230,4 @@ const cancelSubscription = async (req, res) => {
   }
 }
 
-module.exports = { createCheckout, stripeWebhook, getSubscription, cancelSubscription }
+module.exports = { createCheckout, stripeWebhook, confirmCheckout, getSubscription, cancelSubscription }

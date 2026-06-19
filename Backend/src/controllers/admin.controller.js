@@ -2,16 +2,6 @@ const supabase = require('../db/supabase')
 const { runDraw, findWinners, calculatePrizes, simulateDraw } = require('../services/draw.service')
 
 const safeNumber = value => Number(value || 0)
-const allowedUserUpdates = [
-  'name',
-  'role',
-  'subscription_status',
-  'subscription_plan',
-  'subscription_end_date',
-  'charity_id',
-  'charity_percentage',
-  'country'
-]
 
 const getUsers = async (req, res) => {
   try {
@@ -21,83 +11,6 @@ const getUsers = async (req, res) => {
       .order('created_at', { ascending: false })
 
     res.status(200).json({ users })
-  } catch (err) {
-    res.status(500).json({ message: err.message })
-  }
-}
-
-const approveMembership = async (req, res) => {
-  try {
-    const { id } = req.params
-
-    const { data: user } = await supabase
-      .from('users')
-      .select('id, subscription_status')
-      .eq('id', id)
-      .single()
-
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' })
-    }
-
-    // Find latest pending subscription for this user
-    const { data: pendingSub, error: pendingSubError } = await supabase
-      .from('subscriptions')
-      .select('id, plan, end_date')
-      .eq('user_id', id)
-      .in('status', ['pending', 'active'])
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    if (pendingSubError) {
-      return res.status(500).json({ message: pendingSubError.message })
-    }
-
-    if (!pendingSub) {
-      return res.status(400).json({ message: 'No subscription found to approve' })
-    }
-
-    // Activate membership
-    await supabase
-      .from('users')
-      .update({
-        subscription_status: 'active',
-        subscription_plan: pendingSub.plan,
-        subscription_end_date: pendingSub.end_date || null
-      })
-      .eq('id', id)
-
-    await supabase
-      .from('subscriptions')
-      .update({ status: 'active' })
-      .eq('id', pendingSub.id)
-
-    res.status(200).json({ message: 'Membership approved' })
-  } catch (err) {
-    res.status(500).json({ message: err.message })
-  }
-}
-
-const updateUser = async (req, res) => {
-  try {
-    const { id } = req.params
-    const updates = Object.fromEntries(
-      Object.entries(req.body || {}).filter(([key]) => allowedUserUpdates.includes(key))
-    )
-
-    if (Object.keys(updates).length === 0) {
-      return res.status(400).json({ message: 'No valid user fields supplied' })
-    }
-
-    const { data } = await supabase
-      .from('users')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single()
-
-    res.status(200).json({ user: data })
   } catch (err) {
     res.status(500).json({ message: err.message })
   }
@@ -464,7 +377,6 @@ const getAnalytics = async (req, res) => {
 
 module.exports = {
   getUsers,
-  updateUser,
   createDraw,
   executeDraw,
   publishDraw,
@@ -473,7 +385,6 @@ module.exports = {
   getWinners,
   verifyWinner,
   manageCharity,
-  getAnalytics,
-  approveMembership
+  getAnalytics
 }
 
