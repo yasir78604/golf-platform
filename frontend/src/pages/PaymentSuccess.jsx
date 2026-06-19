@@ -29,14 +29,15 @@ function PaymentSuccess() {
     if (status === 'pending') {
       return {
         type: 'info',
-        text: 'Payment successful. Waiting for admin approval to activate your membership.'
+        text: 'Payment received. Checking your membership status…'
       }
     }
 
     return {
       type: 'info',
-      text: 'Payment successful. Checking your membership status…'
+      text: 'Payment received. Checking your membership status…'
     }
+
   }, [status])
 
   useEffect(() => {
@@ -75,7 +76,8 @@ function PaymentSuccess() {
       <div className="max-w-xl mx-auto px-4 py-16">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-white mb-2">Payment Success</h1>
-          <p className="text-[#888]">One step away—admin approval activates your dashboard access.</p>
+          <p className="text-[#888]">Payment received—verifying your membership access…</p>
+
         </div>
 
         {loading ? (
@@ -86,11 +88,12 @@ function PaymentSuccess() {
           <Card>
             <Alert message={error || message.text} type={error ? 'error' : message.type} />
 
-            {status === 'pending' && (
+            {status !== 'active' && (
               <div className="mt-4 text-center text-[#888] text-sm">
-                You can continue using the app. Dashboard unlocks automatically once approved.
+                If access isn’t unlocked yet, it may be taking a moment to sync.
               </div>
             )}
+
 
             <div className="mt-6 flex gap-3">
               <Button type="button" variant="secondary" className="flex-1" onClick={() => navigate('/pricing')}>

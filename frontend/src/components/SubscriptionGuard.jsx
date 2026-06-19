@@ -8,17 +8,14 @@ function SubscriptionGuard({ children }) {
     return null
   }
 
-  // If user paid and is waiting for admin approval, keep them in the flow.
-  if (user?.subscription_status === 'pending') {
-    return <Navigate to="/payment-success?success=true" replace />
+  // Allow dashboard only for active subscribers.
+  if (user?.subscription_status === 'active') {
+    return children
   }
 
-  // Any other state (inactive/unknown) -> pricing
-  if (user?.subscription_status !== 'active') {
-    return <Navigate to="/pricing" replace />
-  }
-
-  return children
+  // Any other state (pending/inactive/unknown) -> pricing
+  return <Navigate to="/pricing" replace />
 }
+
 
 export default SubscriptionGuard
