@@ -84,7 +84,8 @@ const register = async (req, res) => {
         name: user.name,
         role: user.role,
         subscription_status: user.subscription_status
-      }
+      },
+      token
     })
 
   } catch (err) {
@@ -151,7 +152,8 @@ const login = async (req, res) => {
         name: user.name,
         role: user.role,
         subscription_status: user.subscription_status
-      }
+      },
+      token
     })
 
   } catch (err) {

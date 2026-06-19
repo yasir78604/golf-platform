@@ -47,6 +47,11 @@ export function AuthProvider({ children }) {
     const { data } = await api.post('/api/auth/login', {
       email, password
     })
+    localStorage.setItem(
+      'token',
+      data.token
+    )
+    
     setUser(data.user)
     return data.user
   }
@@ -55,6 +60,12 @@ export function AuthProvider({ children }) {
     const { data } = await api.post('/api/auth/register', {
       email, password, name, charity_id, charity_percentage
     })
+
+    localStorage.setItem(
+      'token',
+      data.token
+    )
+    
     setUser(data.user)
     return data.user
   }
@@ -67,16 +78,38 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     await api.post('/api/auth/logout')
+
+    localStorage.removeItem('token')
     setUser(null)
   }
+
+  // const refreshUser = useCallback(async () => {
+  //   try {
+  //     const { data } = await api.get('/api/auth/me')
+  //     setUser(data.user)
+  //     return data.user
+  //   } catch {
+  //     setUser(null)
+  //     return null
+  //   }
+  // }, [])
 
   const refreshUser = useCallback(async () => {
     try {
       const { data } = await api.get('/api/auth/me')
-      setUser(data.user)
-      return data.user
-    } catch {
-      setUser(null)
+  
+      if (data?.user) {
+        setUser(data.user)
+        return data.user
+      }
+  
+      return null
+    } catch (err) {
+      console.log("REFRESH FAILED:", err.response?.data)
+  
+      // DO NOT DO THIS
+      // setUser(null)
+  
       return null
     }
   }, [])
