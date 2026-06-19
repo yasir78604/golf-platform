@@ -15,6 +15,7 @@ function PaymentSuccess() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
+  // status may be stale until refreshUser() finishes.
   const status = user?.subscription_status
 
   const message = useMemo(() => {
@@ -41,6 +42,7 @@ function PaymentSuccess() {
   useEffect(() => {
     const success = searchParams.get('success')
 
+    // If someone visits this page without the success param, just stop loading.
     if (success !== 'true') {
       setLoading(false)
       return
@@ -58,15 +60,15 @@ function PaymentSuccess() {
 
     run()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams])
+  }, [searchParams, refreshUser])
 
   useEffect(() => {
     if (loading) return
     if (status === 'active') {
-      // Auto-redirect once active
       navigate('/dashboard', { replace: true })
     }
   }, [loading, status, navigate])
+
 
   return (
     <Layout>
