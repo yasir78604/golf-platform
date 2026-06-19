@@ -9,6 +9,7 @@ import {
   getAnalytics,
   getUsers,
   updateUser,
+  approveMembership,
   createDraw,
   executeDraw,
   publishDraw,
@@ -73,6 +74,16 @@ function AdminDashboard() {
       setError('Failed to load data.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleApproveSubscription = async (user) => {
+    try {
+      await approveMembership(user.id)
+      setSuccess('Membership approved.');
+      loadTabData('Users')
+    } catch (err) {
+      setError(err?.response?.data?.message || 'Failed to approve membership.')
     }
   }
 
@@ -184,11 +195,11 @@ function AdminDashboard() {
 
   const statCards = analytics
     ? [
-        { label: 'Total Users', value: analytics.totalUsers },
-        { label: 'Active Subscribers', value: analytics.activeSubscribers },
-        { label: 'Total Prize Pool', value: `$${analytics.totalPrizePool?.toFixed(2) || '0'}` },
-        { label: 'Total Draws', value: analytics.totalDraws },
-      ]
+      { label: 'Total Users', value: analytics.totalUsers },
+      { label: 'Active Subscribers', value: analytics.activeSubscribers },
+      { label: 'Total Prize Pool', value: `$${analytics.totalPrizePool?.toFixed(2) || '0'}` },
+      { label: 'Total Draws', value: analytics.totalDraws },
+    ]
     : []
 
   return (
@@ -204,11 +215,10 @@ function AdminDashboard() {
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                activeTab === tab
-                  ? 'bg-accent text-black'
-                  : 'bg-elevated text-[#888] border border-border hover:text-white'
-              }`}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${activeTab === tab
+                ? 'bg-accent text-black'
+                : 'bg-elevated text-[#888] border border-border hover:text-white'
+                }`}
             >
               {tab}
             </button>
@@ -255,21 +265,29 @@ function AdminDashboard() {
                           <td className="py-3 pr-4 text-[#888]">{u.email}</td>
                           <td className="py-3 pr-4 text-[#888] capitalize">{u.role}</td>
                           <td className="py-3 pr-4">
-                            <span className={`text-xs px-2 py-1 rounded-full ${
-                              u.subscription_status === 'active'
-                                ? 'bg-accent/10 text-accent'
-                                : 'bg-elevated text-[#888]'
-                            }`}>
+                            <span className={`text-xs px-2 py-1 rounded-full ${u.subscription_status === 'active'
+                              ? 'bg-accent/10 text-accent'
+                              : 'bg-elevated text-[#888]'
+                              }`}>
                               {u.subscription_status || 'inactive'}
                             </span>
                           </td>
                           <td className="py-3">
-                            <button
-                              onClick={() => handleToggleSubscription(u)}
-                              className="text-accent text-sm hover:text-[#00b386]"
-                            >
-                              Toggle sub
-                            </button>
+                            {u.subscription_status === 'pending' ? (
+                              <button
+                                onClick={() => handleApproveSubscription(u)}
+                                className="text-accent text-sm hover:text-[#00b386]"
+                              >
+                                Approve
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleToggleSubscription(u)}
+                                className="text-accent text-sm hover:text-[#00b386]"
+                              >
+                                Toggle sub
+                              </button>
+                            )}
                           </td>
                         </tr>
                       ))}

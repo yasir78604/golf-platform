@@ -36,14 +36,21 @@ function Pricing() {
   useEffect(() => {
     if (searchParams.get('success') === 'true') {
       const confirmSubscription = async () => {
-        setMessage('Payment completed. Verifying subscription status...')
+        setMessage('Payment successful. Checking your membership status...')
         try {
           await refreshUser()
+
           if (user?.subscription_status === 'active') {
             navigate('/dashboard')
-          } else {
-            setMessage('Payment was received. Stripe is confirming your subscription. Please refresh this page in a moment or return to the dashboard once active.')
+            return
           }
+
+          if (user?.subscription_status === 'pending') {
+            setMessage('Payment successful. Waiting for admin approval to activate your membership.')
+            return
+          }
+
+          setMessage('Payment received. Please wait while your membership is being verified.')
         } catch {
           setError('Payment succeeded, but we could not verify your subscription yet.')
         }

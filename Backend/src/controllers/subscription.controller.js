@@ -61,10 +61,11 @@ const stripeWebhook = async (req, res) => {
       ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
       : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
 
+    // Payment received, but membership is only activated after admin approval.
     await supabase
       .from('users')
       .update({
-        subscription_status: 'active',
+        subscription_status: 'pending',
         subscription_plan: plan,
         subscription_end_date: endDate
       })
@@ -77,7 +78,7 @@ const stripeWebhook = async (req, res) => {
         plan,
         amount: plan === 'monthly' ? 9.99 : 99.99,
         stripe_session_id: session.id,
-        status: 'active',
+        status: 'pending',
         end_date: endDate
       })
   }
@@ -91,7 +92,7 @@ const getSubscription = async (req, res) => {
       .from('subscriptions')
       .select()
       .eq('user_id', req.user.id)
-      .eq('status', 'active')
+      .in('status', ['active', 'pending'])
       .single()
 
     res.status(200).json({ subscription: sub })

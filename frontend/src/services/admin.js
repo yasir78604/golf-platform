@@ -3,6 +3,8 @@ import api from './api'
 export const getAnalytics = () => api.get('/api/admin/analytics')
 export const getUsers = () => api.get('/api/admin/users')
 export const updateUser = (id, updates) => api.patch(`/api/admin/users/${id}`, updates)
+export const approveMembership = (id) => api.patch(`/api/admin/memberships/${id}/approve`)
+
 export const createDraw = (month, year, draw_type) =>
   api.post('/api/admin/draws', { month, year, draw_type })
 export const executeDraw = (id, draw_type) =>
