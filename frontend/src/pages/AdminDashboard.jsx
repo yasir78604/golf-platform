@@ -20,6 +20,7 @@ import {
   deleteCharity,
 } from '../services/admin'
 import { getCharities } from '../services/charities'
+import { UNSAFE_WithHydrateFallbackProps } from 'react-router-dom'
 
 const tabs = ['Overview', 'Users', 'Draws', 'Winners', 'Charities']
 
@@ -94,11 +95,11 @@ function AdminDashboard() {
 
   useEffect(() => {
     if (activeTab !== 'Users') return
-  
+
     const interval = setInterval(() => {
       loadTabData('Users')
     }, 5000)
-  
+
     return () => clearInterval(interval)
   }, [activeTab, loadTabData])
 
@@ -474,23 +475,8 @@ function AdminDashboard() {
                                 Verify
                               </button>
                             )}
-                            {/* {w.status !== 'rejected' && (
-                              <button
-                                onClick={() => handleVerifyWinner(w.id, 'rejected')}
-                                className="text-red-300 text-sm hover:text-red-200 mr-3"
-                              >
-                                Reject
-                              </button>
-                            )}
-                            {w.status === 'verified' && (
-                              <button
-                                onClick={() => handleVerifyWinner(w.id, 'paid')}
-                                className="text-accent text-sm hover:text-[#00b386]"
-                              >
-                                Mark paid
-                              </button>
-                            )} */}
-                           { <p className="text-red-300 text-sm hover:text-red-200 mr-3">Paid</p>}
+                            
+                            {<p className="text-green-300 text-sm hover:text-green-200 mr-3">Paid</p>}
                           </td>
                         </tr>
                       ))}

@@ -40,7 +40,7 @@ function PaymentSuccess() {
         setError("Subscription not activated yet")
 
       } catch (err) {
-        setError("Payment done now Refresh the Page")
+        setError("Payment done now Refresh the Page and go to dashboard")
       } finally {
         setLoading(false)
       }
